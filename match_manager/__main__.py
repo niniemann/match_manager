@@ -1,10 +1,10 @@
 """main entry point"""
-import asyncio
+
 import logging
+logging.basicConfig(level=logging.DEBUG)
 
+import asyncio
 asyncio.set_event_loop(asyncio.new_event_loop())
-logging.basicConfig(level=logging.INFO)
-
 
 def main():
     """configure and start the application"""

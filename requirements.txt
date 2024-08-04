@@ -1,4 +1,4 @@
 cerberus  # config data validation
 py-cord   # discord bot stuff
 quart     # async webserver
-Quart-Discord-any[pycord]  # oauth2 authentication with discord
+Async-OAuthlib  # oauth2 authentication with discord

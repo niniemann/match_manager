@@ -15,6 +15,12 @@ class Webserver:
     port: int  # port, e.g. 5000 or 8080
     secret: bytes  # secret key for the webserver
 
+@dataclass
+class Discord:
+    """discord related configuration"""
+    client_id: int
+    client_secret: str
+    bot_token: str
 
 # a schema to validate the values before constructing the dataclass instances
 schema = {
@@ -24,6 +30,14 @@ schema = {
             'host': { 'type': 'string' },
             'port': { 'type': 'integer', 'min': 1024, 'max': 49151 },
             'secret': { 'type': 'string' },
+        },
+    },
+    'discord' : {
+        'type': 'dict',
+        'schema': {
+            'client_id': { 'type': 'integer' },
+            'client_secret': { 'type': 'string' },
+            'bot_token': { 'type': 'string' },
         },
     },
 }
@@ -44,3 +58,4 @@ logger.info('loaded config')
 logger.info(config)
 
 webserver = Webserver(**config['webserver'])
+discord = Discord(**config['discord'])
