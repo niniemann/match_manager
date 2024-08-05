@@ -1,10 +1,8 @@
 """main entry point"""
 
+import asyncio
 import logging
 logging.basicConfig(level=logging.DEBUG)
-
-import asyncio
-asyncio.set_event_loop(asyncio.new_event_loop())
 
 def main():
     """configure and start the application"""
@@ -14,8 +12,7 @@ def main():
     from . import web
 
     logger = logging.getLogger(__name__)
-
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
 
     # start discord bot: bot_task = loop.create_task(bot.start(...))
 
