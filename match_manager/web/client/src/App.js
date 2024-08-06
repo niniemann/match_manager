@@ -1,11 +1,17 @@
 import "./App.css";
 import Navbar from "./Navbar.js";
+import { Routes, Route } from "react-router-dom";
+import Home from "./pages/Home.js";
+import Teams from "./pages/Teams.js";
 
 function App() {
   return (
     <>
       <Navbar />
-      <div className="text-3xl font-bold underline">Hello, World! How'ya doin'?</div>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/teams" element={<Teams />} />
+      </Routes>
     </>
   );
 }

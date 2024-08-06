@@ -1,29 +1,18 @@
-import {
-  Disclosure,
-  DisclosureButton,
-  DisclosurePanel,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuItems,
-} from "@headlessui/react";
-import { Bars3Icon, BellIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Disclosure, DisclosureButton, DisclosurePanel } from "@headlessui/react";
+import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
+import { NavLink } from "react-router-dom";
 
 import LoginButton from "./LoginButton.js";
 import ecl_logo from "./img/ecl_logo_web.png";
 
 const navigation = [
-  { name: "Home", href: "#", current: true },
-  { name: "Teams", href: "#", current: false },
-  { name: "Rules", href: "#", current: false },
-  { name: "User Scoreboard", href: "#", current: false },
-  { name: "Division Rankings", href: "#", current: false },
-  { name: "Match History", href: "#", current: false },
+  { name: "Home", href: "/" },
+  { name: "Teams", href: "/teams" },
+  { name: "Rules", href: "/rules" },
+  { name: "User Scoreboard", href: "#" },
+  { name: "Division Rankings", href: "#" },
+  { name: "Match History", href: "#" },
 ];
-
-function classNames(...classes) {
-  return classes.filter(Boolean).join(" ");
-}
 
 export default function Navbar() {
   return (
@@ -46,17 +35,19 @@ export default function Navbar() {
             <div className="hidden md:ml-6 md:block items-center">
               <div className="flex h-full items-center justify-center space-x-2">
                 {navigation.map((item) => (
-                  <a
+                  <NavLink
                     key={item.name}
-                    href={item.href}
-                    aria-current={item.current ? "page" : undefined}
-                    className={classNames(
-                      item.current ? "bg-gray-900 text-white" : "text-gray-300 hover:bg-gray-700 hover:text-white",
-                      "rounded-md px-3 py-2 text-sm font-medium"
-                    )}
+                    to={item.href}
+                    className={({ isActive, isPending, isTransitioning }) =>
+                      [
+                        isActive ? "bg-gray-900 text-white" : "text-gray-300",
+                        "hover:bg-gray-700 hover:text-white",
+                        "rounded-md px-3 py-2 text-sm font-medium",
+                      ].join(" ")
+                    }
                   >
                     {item.name}
-                  </a>
+                  </NavLink>
                 ))}
               </div>
             </div>
@@ -75,10 +66,10 @@ export default function Navbar() {
               as="a"
               href={item.href}
               aria-current={item.current ? "page" : undefined}
-              className={classNames(
+              className={[
                 item.current ? "bg-gray-900 text-white" : "text-gray-300 hover:bg-gray-700 hover:text-white",
                 "block rounded-md px-3 py-2 text-base font-medium"
-              )}
+              ].join(" ")}
             >
               {item.name}
             </DisclosureButton>

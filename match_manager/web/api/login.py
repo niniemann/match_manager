@@ -74,8 +74,11 @@ async def callback():
     return redirect(url_for('.profile'))
 
 
-@blue.route('/profile')
-@requires_login(redirect_on_failure=True)
-async def profile():
-    """dummy page, depending on user login"""
-    return session['discord_user_data']
+@blue.route('/api/current-user')
+async def current_user():
+    """returns information about the currently logged in user"""
+    if 'discord_user_data' in session:
+        return session['discord_user_data']
+
+    # just an empty dict if not logged in
+    return {}
