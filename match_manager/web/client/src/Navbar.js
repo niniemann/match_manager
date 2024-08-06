@@ -1,9 +1,21 @@
-import { Disclosure, DisclosureButton, DisclosurePanel } from "@headlessui/react";
+import {
+  Disclosure,
+  DisclosureButton,
+  DisclosurePanel,
+  Menu,
+  MenuButton,
+  MenuItems,
+  MenuItem,
+} from "@headlessui/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { NavLink } from "react-router-dom";
+import { useState, useEffect } from "react";
+import axios from "axios";
 
 import LoginButton from "./LoginButton.js";
 import ecl_logo from "./img/ecl_logo_web.png";
+
+const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
 const navigation = [
   { name: "Home", href: "/" },
@@ -14,7 +26,51 @@ const navigation = [
   { name: "Match History", href: "#" },
 ];
 
+function UserMenu({ user }) {
+  const base = "https://cdn.discordapp.com";
+  const defaultAvatar = `${base}/embed/avatars/${(user["id"] >> 22) % 6}.png`;
+  const avatar = "avatar" in user ? `${base}/avatars/${user["id"]}/${user["avatar"]}.png` : defaultAvatar;
+  const username = "global_name" in user ? user["global_name"] : user["username"];
+
+  return (
+    <>
+      <Menu as="div">
+        <MenuButton className="relative px-1 py-1 flex rounded-full bg-gray-800 text-sm ring-2 ring-gray-500 hover:ring-white">
+          <div className="flex items-center">
+            <img alt="" src={avatar} className="h-10" />
+            <span className="hidden md:inline mx-2 text-sm text-white font-medium">{username}</span>
+          </div>
+        </MenuButton>
+        <MenuItems
+          transition
+          className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5"
+        >
+          <MenuItem>
+            <a
+              href={`${API_ENDPOINT}/../logout`}
+              className="block px-4 py-2 text-sm text-gray-700 data-[focus]:bg-gray-100"
+            >
+              logout
+            </a>
+          </MenuItem>
+        </MenuItems>
+      </Menu>
+    </>
+  );
+}
+
 export default function Navbar() {
+  const [discordUser, setDiscordUser] = useState(undefined);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const result = await axios(`${API_ENDPOINT}/current-user`, { withCredentials: true });
+      setDiscordUser(result.data);
+    };
+
+    fetchData();
+  }, []);
+
   return (
     <Disclosure as="nav" className="bg-gray-800">
       <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
@@ -53,7 +109,14 @@ export default function Navbar() {
             </div>
           </div>
           <div className="absolute inset-y-0 right-0 flex items-center pr-2 md:static md:inset-auto md:ml-6 md:pr-0">
-            <LoginButton />
+            {/* if not logged in, show the login button, else the user profile picture */}
+            {discordUser === undefined ? (
+              ""
+            ) : "username" in discordUser ? (
+              <UserMenu user={discordUser} />
+            ) : (
+              <LoginButton />
+            )}
           </div>
         </div>
       </div>
@@ -68,7 +131,7 @@ export default function Navbar() {
               aria-current={item.current ? "page" : undefined}
               className={[
                 item.current ? "bg-gray-900 text-white" : "text-gray-300 hover:bg-gray-700 hover:text-white",
-                "block rounded-md px-3 py-2 text-base font-medium"
+                "block rounded-md px-3 py-2 text-base font-medium",
               ].join(" ")}
             >
               {item.name}

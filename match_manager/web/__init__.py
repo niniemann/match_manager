@@ -3,6 +3,7 @@
 import os
 
 from quart import Quart, url_for, render_template, send_file
+from quart_cors import cors
 
 
 from .. import config
@@ -10,6 +11,7 @@ from .api import login
 
 # serve the react application, built with `npm run build` in `client/`, as static files
 app = Quart(__name__, static_url_path='/', static_folder='client/build')
+app = cors(app)
 
 # configure secrets for oauth2 -- login with discord
 app.secret_key = config.webserver.secret
@@ -19,9 +21,14 @@ app.config['DISCORD_BOT_TOKEN'] = config.discord.bot_token
 app.config['DISCORD_REDIRECT_URI'] = \
     f'http://{config.webserver.host}:{config.webserver.port}/discord-oauth-callback'
 
-# for local development, allow insecure transport (no https configured)
 if config.webserver.host == 'localhost':
+    # for local development, allow insecure transport (no https configured)
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
+    # also, generally allow cross-site-requests from localhost:3000, which is the react app running in node
+    # (instead of being served by quart)
+    app.config['QUART_CORS_ALLOW_ORIGIN'] = { 'http://localhost:3000' }
+    app.config['QUART_CORS_ALLOW_CREDENTIALS'] = True
 
 # register the different routes from their blueprints
 app.register_blueprint(login.blue)

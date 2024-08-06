@@ -2,3 +2,4 @@ cerberus  # config data validation
 py-cord   # discord bot stuff
 quart     # async webserver
 Async-OAuthlib  # oauth2 authentication with discord
+quart-cors  # configure cors access to api methods (initially only for development)
