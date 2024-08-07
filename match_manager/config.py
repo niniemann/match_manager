@@ -9,10 +9,13 @@ import cerberus
 logger = logging.getLogger(__name__)
 
 @dataclass
+class Environment:
+    """general environment configuration"""
+    developer_mode: bool  # in developer mode, some relaxations are made, e.g. allowing http in oauth
+
+@dataclass
 class Webserver:
     """webserver configuration"""
-    host: str  # name/ip, e.g. localhost or 0.0.0.0
-    port: int  # port, e.g. 5000 or 8080
     secret: bytes  # secret key for the webserver
 
 @dataclass
@@ -24,11 +27,15 @@ class Discord:
 
 # a schema to validate the values before constructing the dataclass instances
 schema = {
+    'environment' : {
+        'type': 'dict',
+        'schema': {
+            'developer_mode': { 'type': 'boolean' },
+        },
+    },
     'webserver' : {
         'type': 'dict',
         'schema': {
-            'host': { 'type': 'string' },
-            'port': { 'type': 'integer', 'min': 1024, 'max': 49151 },
             'secret': { 'type': 'string' },
         },
     },
@@ -57,5 +64,6 @@ if not validator.validate(config):
 logger.info('loaded config')
 logger.info(config)
 
+environment = Environment(**config['environment'])
 webserver = Webserver(**config['webserver'])
 discord = Discord(**config['discord'])

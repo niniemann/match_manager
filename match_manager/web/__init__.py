@@ -18,10 +18,10 @@ app.secret_key = config.webserver.secret
 app.config['DISCORD_CLIENT_ID'] = config.discord.client_id
 app.config['DISCORD_CLIENT_SECRET'] = config.discord.client_secret
 app.config['DISCORD_BOT_TOKEN'] = config.discord.bot_token
-app.config['DISCORD_REDIRECT_URI'] = \
-    f'http://{config.webserver.host}:{config.webserver.port}/discord-oauth-callback'
+#app.config['DISCORD_REDIRECT_URI'] = \
+#    f'http://{config.webserver.host}:{config.webserver.port}/discord-oauth-callback'
 
-if config.webserver.host == 'localhost':
+if config.environment.developer_mode:
     # for local development, allow insecure transport (no https configured)
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 

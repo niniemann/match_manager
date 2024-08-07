@@ -8,7 +8,6 @@ def main():
     """configure and start the application"""
     # import custom modules late, to ensure logging has been configured
     # pylint: disable=import-outside-toplevel
-    from . import config
     from . import web
 
     logger = logging.getLogger(__name__)
@@ -17,7 +16,7 @@ def main():
     # start discord bot: bot_task = loop.create_task(bot.start(...))
 
     logger.info('starting webserver')
-    web.app.run(loop=loop, host=config.webserver.host)
+    web.app.run(loop=loop, host='0.0.0.0', port=5000)
 
 
 if __name__ == '__main__':
