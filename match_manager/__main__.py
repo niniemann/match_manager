@@ -1,8 +1,33 @@
 """main entry point"""
+# pylint: disable=wrong-import-position
 
 import asyncio
 import logging
 logging.basicConfig(level=logging.DEBUG)
+
+import os
+
+import peewee as pw
+import peeweedbevolve  # pylint: disable=unused-import
+
+from . import model
+
+def connect_database():
+    """establish the connection to the postgresql database"""
+    database = pw.PostgresqlDatabase(
+        database=os.getenv('POSTGRES_DB'),
+        user=os.getenv('POSTGRES_USER'),
+        password=os.getenv('POSTGRES_PASSWORD'),
+        host='database',
+        port=5432,
+        connect_timeout=2,
+    )
+
+    model.team.db_proxy.initialize(database)
+
+    database.connect()
+    database.evolve()
+
 
 def main():
     """configure and start the application"""
@@ -12,6 +37,8 @@ def main():
 
     logger = logging.getLogger(__name__)
     loop = asyncio.new_event_loop()
+
+    connect_database()
 
     # start discord bot: bot_task = loop.create_task(bot.start(...))
 

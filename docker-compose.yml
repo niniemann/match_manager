@@ -1,5 +1,9 @@
 networks:
   common:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 178.18.0.0/16
 
 services:
   db:
@@ -11,7 +15,9 @@ services:
     volumes:
       - ${DB_FOLDER}:/data
     networks:
-      - common
+      common:
+        ipv4_address: 178.18.0.2
+
     hostname: database
     restart: unless-stopped
 
