@@ -10,7 +10,12 @@ import os
 import peewee as pw
 import peeweedbevolve  # pylint: disable=unused-import
 
-from . import model
+# import custom modules late, to ensure logging has been configured
+from . import model, config
+from . import web, bot
+
+logger = logging.getLogger(__name__)
+logging.getLogger('discord').setLevel(logging.INFO)
 
 def connect_database():
     """establish the connection to the postgresql database"""
@@ -31,18 +36,19 @@ def connect_database():
 
 def main():
     """configure and start the application"""
-    # import custom modules late, to ensure logging has been configured
-    # pylint: disable=import-outside-toplevel
-    from . import web
 
-    logger = logging.getLogger(__name__)
-    loop = asyncio.new_event_loop()
-
+    logger.info('connect to database..')
     connect_database()
 
-    # start discord bot: bot_task = loop.create_task(bot.start(...))
+    logger.info('start webserver and bot..')
 
-    logger.info('starting webserver')
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    loop.create_task(bot.get().start(config.discord.bot_token))
     web.app.run(loop=loop, host='0.0.0.0', port=5000)
 
 

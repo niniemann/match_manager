@@ -4,14 +4,15 @@ import os
 
 from quart import Quart, url_for, render_template, send_file
 from quart_cors import cors
-
+from quart_schema import QuartSchema
 
 from .. import config
-from .api import login
+from .api import login, team
 
 # serve the react application, built with `npm run build` in `client/`, as static files
 app = Quart(__name__, static_url_path='/', static_folder='client/build')
 app = cors(app)
+QuartSchema(app, swagger_ui_path='/api/docs')
 
 # configure secrets for oauth2 -- login with discord
 app.secret_key = config.webserver.secret
@@ -32,6 +33,7 @@ if config.environment.developer_mode:
 
 # register the different routes from their blueprints
 app.register_blueprint(login.blue)
+app.register_blueprint(team.blue)
 
 # The react app does client-side routing for different component pages.
 # This works fine when starting from the index page '/', as the react router will catch links to

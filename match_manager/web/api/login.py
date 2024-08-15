@@ -8,6 +8,7 @@ from oauthlib.oauth2 import OAuth2Error
 from quart import Blueprint, redirect, request, session, url_for
 
 from match_manager import config
+from match_manager import bot as discord_bot
 
 blue = Blueprint('login', __name__)
 
@@ -35,6 +36,26 @@ def requires_login(*, redirect_on_failure: bool):
 
         return __requires_login
     return _requires_login
+
+
+def requires_match_maker_admin():
+    """
+    Route-decorator to require a valid match-manager-admin.
+    (The global admin role, not team-specific.)
+
+    Assumes the existence of `discord_user_data` on the session, i.e. a logged-in user!
+    """
+    def _decorator(f):
+        @wraps(f)
+        async def __decorator(*args, **kwargs):
+            discord_user_id = session['discord_user_data']['id']
+            is_admin = await discord_bot.get().is_match_manager_admin(discord_user_id)
+            if not is_admin:
+                return 'admin rights required', HTTPStatus.UNAUTHORIZED
+            return await f(*args, **kwargs)
+
+        return __decorator
+    return _decorator
 
 
 

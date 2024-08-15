@@ -24,6 +24,8 @@ class Discord:
     client_id: int
     client_secret: str
     bot_token: str
+    admin_guild_id: int  # id of the discord server that grants admin rights
+    admin_role_id: int   # id of the role that grants the admin rights
 
 # a schema to validate the values before constructing the dataclass instances
 schema = {
@@ -45,6 +47,8 @@ schema = {
             'client_id': { 'type': 'integer' },
             'client_secret': { 'type': 'string' },
             'bot_token': { 'type': 'string' },
+            'admin_guild_id': { 'type': 'integer'},
+            'admin_role_id': { 'type': 'integer' },
         },
     },
 }

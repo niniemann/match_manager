@@ -3,6 +3,7 @@ py-cord   # discord bot stuff
 quart     # async webserver
 Async-OAuthlib  # oauth2 authentication with discord
 quart-cors  # configure cors access to api methods (initially only for development)
+quart-schema[msgspec]  # input validation for api endpoints
 peewee  # database orm
 peewee-db-evolve  # semi-automatic schema migrations
 psycopg2-binary  # postgresql driver
