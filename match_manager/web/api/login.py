@@ -2,14 +2,16 @@
 import logging
 from functools import wraps
 from http import HTTPStatus
+from dataclasses import dataclass
 
 from async_oauthlib import OAuth2Session
 from oauthlib.oauth2 import OAuth2Error
 from quart import Blueprint, redirect, request, session, url_for
-from quart_schema import hide
+from quart_schema import hide, validate_response
 
 from match_manager import config
 from match_manager import bot as discord_bot
+from match_manager import model
 
 blue = Blueprint('login', __name__)
 
@@ -129,6 +131,7 @@ async def logout():
         return redirect(request.referrer)
     return redirect('/')
 
+
 @blue.route('/api/current-user')
 async def current_user():
     """returns information about the currently logged in user"""
@@ -137,3 +140,28 @@ async def current_user():
 
     # just an empty dict if not logged in
     return {}
+
+
+@dataclass
+class UserPermissions:
+    """permissions of a user"""
+    is_admin: bool  # whether the user is an administrator the for league/tournament
+    is_manager_for_teams: list[int]  # the list of teams this user is a manager for
+
+
+@blue.route('/api/current-user/permissions')
+@validate_response(UserPermissions)
+async def current_user_permissions():
+    """returns permission information for the currently logged in user"""
+
+    if 'discord_user_data' not in session:
+        return UserPermissions(is_admin=False, is_manager_for_teams=[])
+
+    user_id = session['discord_user_data']['id']
+
+    is_admin = await discord_bot.get().is_match_manager_admin(user_id)
+
+    TeamManager = model.team.TeamManager
+    teams = TeamManager.select().where(TeamManager.discord_user_id==user_id)
+
+    return UserPermissions(is_admin=is_admin, is_manager_for_teams=[team.id for team in teams])  # pylint: disable=not-an-iterable
