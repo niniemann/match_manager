@@ -9,8 +9,6 @@ import {
 } from "@headlessui/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { NavLink } from "react-router-dom";
-import { useState, useEffect } from "react";
-import axios from "axios";
 
 import LoginButton from "./LoginButton.js";
 import ecl_logo from "./img/ecl_logo_web.png";
@@ -59,18 +57,25 @@ function UserMenu({ user }) {
   );
 }
 
-export default function Navbar() {
-  const [discordUser, setDiscordUser] = useState(undefined);
+function CustomNavItem({ name, href }) {
+  return (
+    <NavLink
+      key={name}
+      to={href}
+      className={({ isActive, isPending, isTransitioning }) =>
+        [
+          isActive ? "bg-gray-900 text-white" : "text-gray-300",
+          "hover:bg-gray-700 hover:text-white",
+          "rounded-md px-3 py-2 text-sm font-medium",
+        ].join(" ")
+      }
+    >
+      {name}
+    </NavLink>
+  );
+}
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const result = await axios(`${API_ENDPOINT}/current-user`, { withCredentials: true });
-      setDiscordUser(result.data);
-    };
-
-    fetchData();
-  }, []);
-
+export default function Navbar({ discordUser, is_admin_or_manager }) {
   return (
     <Disclosure as="nav" className="bg-gray-800">
       <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
@@ -91,24 +96,18 @@ export default function Navbar() {
             <div className="hidden md:ml-6 md:block items-center">
               <div className="flex h-full items-center justify-center space-x-2">
                 {navigation.map((item) => (
-                  <NavLink
-                    key={item.name}
-                    to={item.href}
-                    className={({ isActive, isPending, isTransitioning }) =>
-                      [
-                        isActive ? "bg-gray-900 text-white" : "text-gray-300",
-                        "hover:bg-gray-700 hover:text-white",
-                        "rounded-md px-3 py-2 text-sm font-medium",
-                      ].join(" ")
-                    }
-                  >
-                    {item.name}
-                  </NavLink>
+                  <CustomNavItem name={item.name} href={item.href} />
                 ))}
               </div>
             </div>
           </div>
           <div className="absolute inset-y-0 right-0 flex items-center pr-2 md:static md:inset-auto md:ml-6 md:pr-0">
+            {/* if admin or team manager, show the admin-link */}
+            {is_admin_or_manager ? (
+              <CustomNavItem name="Admin" href="/admin" />
+            ) : (
+              ""
+            )}
             {/* if not logged in, show the login button, else the user profile picture */}
             {discordUser === undefined ? (
               ""
