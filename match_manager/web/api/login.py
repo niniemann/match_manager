@@ -6,6 +6,7 @@ from http import HTTPStatus
 from async_oauthlib import OAuth2Session
 from oauthlib.oauth2 import OAuth2Error
 from quart import Blueprint, redirect, request, session, url_for
+from quart_schema import hide
 
 from match_manager import config
 from match_manager import bot as discord_bot
@@ -60,6 +61,7 @@ def requires_match_maker_admin():
 
 
 @blue.route('/login')
+@hide
 async def login():
     """redirect to discord for login"""
     async with OAuth2Session(config.discord.client_id, scope=['identify']) as discord:
@@ -73,6 +75,7 @@ async def login():
 
 
 @blue.route('/discord-oauth-callback')
+@hide
 async def callback():
     """get token info from discord and identify the user"""
     async with OAuth2Session(config.discord.client_id,
@@ -115,6 +118,7 @@ async def callback():
 
 
 @blue.route('/logout')
+@hide
 async def logout():
     """just remove the user info from the session, and redirect back"""
     if 'discord_user_data' in session:

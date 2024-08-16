@@ -4,7 +4,7 @@ import os
 
 from quart import Quart, url_for, render_template, send_file
 from quart_cors import cors
-from quart_schema import QuartSchema
+from quart_schema import QuartSchema, hide
 
 from .. import config
 from .api import login, team
@@ -44,6 +44,7 @@ app.register_blueprint(team.blue)
 @app.route('/')
 @app.route('/teams')
 @app.route('/rules')
+@hide
 async def react_app():
     """just let the react app handle these routes on the client side"""
     return await app.send_static_file('index.html')
