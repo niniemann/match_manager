@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from typing import List
 
-from quart import Blueprint, redirect, request, session, url_for
+from quart import Blueprint
 from quart_schema import validate_request, validate_response
 
 from playhouse.shortcuts import model_to_dict
@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PartialTeam:
+    """partial team data, potentially not existent in the database yet"""
     name: str | None
     description: str | None
     logo_url: str | None
@@ -25,6 +26,7 @@ class PartialTeam:
 
 @dataclass
 class Team(PartialTeam):
+    """existing team, including its id"""
     id: int
 
 
