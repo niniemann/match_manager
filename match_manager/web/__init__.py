@@ -44,6 +44,7 @@ app.register_blueprint(team.blue)
 @app.route('/')
 @app.route('/teams')
 @app.route('/rules')
+@app.route('/admin/all-teams')
 @hide
 async def react_app():
     """just let the react app handle these routes on the client side"""

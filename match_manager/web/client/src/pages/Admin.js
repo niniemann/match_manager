@@ -1,10 +1,16 @@
+import { Route, Routes } from "react-router-dom";
+
+import SideMenu from "./admin/SideMenu.js";
+import Teams from "./admin/Teams.js";
+
 export default function Admin() {
-    return (
-        <>
-            <ul>
-                <li>add admin menu here</li>
-                <li>add admin routes here</li>
-            </ul>
-        </>
-    )
+  return (
+    <div class="flex flex-1">
+      <SideMenu />
+      <Routes>
+        <Route path="all-teams" element={<Teams />} />
+        <Route path="audit-log" element={<></>} />
+      </Routes>
+    </div>
+  );
 }

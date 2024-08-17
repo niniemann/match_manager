@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 
 import "./App.css";
-import Navbar from "./Navbar.js";
+import { Navbar } from "./Navbar.js";
 import Home from "./pages/Home.js";
 import Teams from "./pages/Teams.js";
 import Admin from "./pages/Admin.js";
@@ -27,14 +27,17 @@ function App() {
   }, []);
 
   return (
-    <>
+    <div className="flex flex-col h-screen">
       <Navbar discordUser={discordUser} is_admin_or_manager={is_admin_or_manager} />
+
+      <div className="flex flex-1">
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/teams" element={<Teams />} />
-        {is_admin_or_manager ? <Route path="/admin" element={<Admin />} /> : ""}
+        {is_admin_or_manager ? <Route path="/admin/*" element={<Admin />} /> : ""}
       </Routes>
-    </>
+      </div>
+    </div>
   );
 }
 
