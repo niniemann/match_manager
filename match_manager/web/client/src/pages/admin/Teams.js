@@ -1,3 +1,4 @@
+
 export default function Teams() {
-  return <p>team management will be done here</p>;
+  return <><p>This is some test text. Don't worry, this will change.</p></>;
 }

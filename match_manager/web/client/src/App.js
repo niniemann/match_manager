@@ -1,24 +1,63 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import axios from "axios";
 
 import "./App.css";
-import { Navbar } from "./Navbar.js";
 import Home from "./pages/Home.js";
 import Teams from "./pages/Teams.js";
 import Admin from "./pages/Admin.js";
+import ecl_logo from "./img/ecl_logo_web.png";
+import discord_logo from "./img/discord-mark-blue.svg";
+
+import TopNavigation from "@cloudscape-design/components/top-navigation";
+
+import { getDiscordAvatarUrl } from "./util.js";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
+
+
 function App() {
-  const [discordUser, setDiscordUser] = useState(undefined);
+  // configuration of a login-button within the TopNavigation
+  const login_button = {
+    type: "button",
+    variant: "link",
+    iconUrl: discord_logo,
+    text: "login with discord",
+    href: `${API_ENDPOINT}/../login`,
+  };
+
+  // configuration of a user-menu with a logout option within the TopNavigation,
+  // requires extension with e.g. the users name and avatar
+  const user_menu = {
+    type: "menu-dropdown",
+    items: [{ id: "logout", text: "logout", href: `${API_ENDPOINT}/../logout` }],
+  };
+
+  const [user_menu_or_login, set_user_menu_or_login] = useState({ ...login_button });
   const [is_admin_or_manager, set_is_admin_or_manager] = useState(false);
 
   useEffect(() => {
+    // fetch info and permissions of the currently logged in user
+    // and show either the menu to logout or the login-button, depending on the state,
+    // and configure the app to show the admin pages if the user is either an admin
+    // or team manager
     const fetchData = async () => {
       const user = await axios(`${API_ENDPOINT}/current-user`, { withCredentials: true });
       const perm = await axios(`${API_ENDPOINT}/current-user/permissions`, { withCredentials: true });
-      setDiscordUser(user.data);
+
+      const username = "global_name" in user.data ? user.data["global_name"] : user.data["username"];
+
+      if (username) {
+        set_user_menu_or_login({
+          ...user_menu,
+          text: username,
+          iconUrl: getDiscordAvatarUrl(user.data),
+        });
+      } else {
+        set_user_menu_or_login(login_button);
+      }
+
       set_is_admin_or_manager(perm.data.is_admin || perm.data.is_manager_for_teams.length > 0);
       console.log(perm.data);
     };
@@ -26,17 +65,60 @@ function App() {
     fetchData();
   }, []);
 
+  // to use the react-dom-router together with cloudscape.design components,
+  // we need to handle navigation manually
+  const navigate = useNavigate();
+  const handleNavigation = (event, href) => {
+    event.preventDefault();
+    navigate(href);
+  };
+
   return (
     <div className="flex flex-col h-screen">
-      <Navbar discordUser={discordUser} is_admin_or_manager={is_admin_or_manager} />
+      {/* always show the main navigation on the top of the screen */}
+      <TopNavigation
+        identity={{
+          title: "European Community League",
+          logo: {
+            src: ecl_logo,
+            alt: "ecl",
+          },
+          href: "/",
+          onFollow: (event) => handleNavigation(event, "/"),
+        }}
+        utilities={[
+          {
+            type: "button",
+            text: "Home",
+            href: "/",
+            onClick: (event) => handleNavigation(event, "/"),
+          },
+          {
+            type: "button",
+            text: "Teams",
+            href: "/teams",
+            onClick: (event) => handleNavigation(event, "/teams"),
+          },
+          ...(is_admin_or_manager
+            ? [
+                {
+                  type: "button",
+                  text: "Admin",
+                  href: "/admin",
+                  onClick: (event) => handleNavigation(event, "/admin"),
+                },
+              ]
+            : []),
+          user_menu_or_login,
+        ]}
+      />
 
-      <div className="flex flex-1">
+      {/* include other pages, let the react router handle them on the client-side */}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/teams" element={<Teams />} />
         {is_admin_or_manager ? <Route path="/admin/*" element={<Admin />} /> : ""}
       </Routes>
-      </div>
     </div>
   );
 }
