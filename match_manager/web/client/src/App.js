@@ -8,14 +8,15 @@ import Teams from "./pages/Teams.js";
 import Admin from "./pages/Admin.js";
 import ecl_logo from "./img/ecl_logo_web.png";
 import discord_logo from "./img/discord-mark-blue.svg";
+import { SunIcon as SunIconSolid, MoonIcon as MoonIconSolid } from "@heroicons/react/24/solid";
+import { SunIcon as SunIconOutline, MoonIcon as MoonIconOutline } from "@heroicons/react/24/outline";
 
 import TopNavigation from "@cloudscape-design/components/top-navigation";
+import { applyMode, Mode } from "@cloudscape-design/global-styles";
 
 import { getDiscordAvatarUrl } from "./util.js";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
-
-
 
 function App() {
   // configuration of a login-button within the TopNavigation
@@ -37,7 +38,20 @@ function App() {
   const [user_menu_or_login, set_user_menu_or_login] = useState({ ...login_button });
   const [is_admin_or_manager, set_is_admin_or_manager] = useState(false);
 
+  // allow switching between dark- and light mode
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const toggleMode = () => {
+    setIsDarkMode(!isDarkMode);
+    applyMode(isDarkMode ? Mode.Light : Mode.Dark);
+    localStorage.setItem("mode", !isDarkMode ? "dark" : "light");
+  };
+
   useEffect(() => {
+    // check the users preference for dark/light mode from the local storage; default to dark mode
+    const mode = localStorage.getItem("mode") || "dark";
+    setIsDarkMode(mode === "dark");
+    applyMode(mode === "dark" ? Mode.Dark : Mode.Light);
+
     // fetch info and permissions of the currently logged in user
     // and show either the menu to logout or the login-button, depending on the state,
     // and configure the app to show the admin pages if the user is either an admin
@@ -110,6 +124,16 @@ function App() {
               ]
             : []),
           user_menu_or_login,
+          {
+            type: "button",
+            text: (
+              <div className="flex items-center">
+                {isDarkMode ? <SunIconOutline className="flex-auto h-5 w-5" /> : <SunIconSolid className="h-5 w-5" />}
+                {isDarkMode ? <MoonIconSolid className="flex-auto h-4 w-4" /> : <MoonIconOutline className="h-4 w-4" />}
+              </div>
+            ),
+            onClick: toggleMode,
+          },
         ]}
       />
 
