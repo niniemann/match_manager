@@ -11,6 +11,7 @@ export default function Admin() {
 
   return (
     <AppLayout
+      headerSelector="#h"
       navigation=<SideNavigation
         activeHref={activeHref}
         onFollow={(event) => {

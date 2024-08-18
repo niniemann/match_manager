@@ -88,54 +88,60 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col">
       {/* always show the main navigation on the top of the screen */}
-      <TopNavigation
-        identity={{
-          title: "European Community League",
-          logo: {
-            src: ecl_logo,
-            alt: "ecl",
-          },
-          href: "/",
-          onFollow: (event) => handleNavigation(event, "/"),
-        }}
-        utilities={[
-          {
-            type: "button",
-            text: "Home",
+      <div id="h" style={{ position: "sticky", top: 0, zIndex: 1002 }}>
+        <TopNavigation
+          identity={{
+            title: "European Community League",
+            logo: {
+              src: ecl_logo,
+              alt: "ecl",
+            },
             href: "/",
-            onClick: (event) => handleNavigation(event, "/"),
-          },
-          {
-            type: "button",
-            text: "Teams",
-            href: "/teams",
-            onClick: (event) => handleNavigation(event, "/teams"),
-          },
-          ...(is_admin_or_manager
-            ? [
-                {
-                  type: "button",
-                  text: "Admin",
-                  href: "/admin",
-                  onClick: (event) => handleNavigation(event, "/admin"),
-                },
-              ]
-            : []),
-          user_menu_or_login,
-          {
-            type: "button",
-            text: (
-              <div className="flex items-center">
-                {isDarkMode ? <SunIconOutline className="flex-auto h-5 w-5" /> : <SunIconSolid className="h-5 w-5" />}
-                {isDarkMode ? <MoonIconSolid className="flex-auto h-4 w-4" /> : <MoonIconOutline className="h-4 w-4" />}
-              </div>
-            ),
-            onClick: toggleMode,
-          },
-        ]}
-      />
+            onFollow: (event) => handleNavigation(event, "/"),
+          }}
+          utilities={[
+            {
+              type: "button",
+              text: "Home",
+              href: "/",
+              onClick: (event) => handleNavigation(event, "/"),
+            },
+            {
+              type: "button",
+              text: "Teams",
+              href: "/teams",
+              onClick: (event) => handleNavigation(event, "/teams"),
+            },
+            ...(is_admin_or_manager
+              ? [
+                  {
+                    type: "button",
+                    text: "Admin",
+                    href: "/admin",
+                    onClick: (event) => handleNavigation(event, "/admin"),
+                  },
+                ]
+              : []),
+            user_menu_or_login,
+            {
+              type: "button",
+              text: (
+                <div className="flex items-center">
+                  {isDarkMode ? <SunIconOutline className="flex-auto h-5 w-5" /> : <SunIconSolid className="h-5 w-5" />}
+                  {isDarkMode ? (
+                    <MoonIconSolid className="flex-auto h-4 w-4" />
+                  ) : (
+                    <MoonIconOutline className="h-4 w-4" />
+                  )}
+                </div>
+              ),
+              onClick: toggleMode,
+            },
+          ]}
+        />
+      </div>
 
       {/* include other pages, let the react router handle them on the client-side */}
       <Routes>
