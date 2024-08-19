@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
-import { AppLayout, ContentLayout, SideNavigation } from "@cloudscape-design/components";
+import { AppLayout, SideNavigation } from "@cloudscape-design/components";
 
-import Teams from "./admin/Teams.js";
+import { TeamsTable } from "./admin/Teams.js";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ export default function Admin() {
         ]}
       />
       content=<Routes>
-        <Route path="all-teams" element={<Teams />} />
+        <Route path="all-teams" element={<TeamsTable />} />
         <Route path="audit-log" element={<></>} />
       </Routes>
     />
