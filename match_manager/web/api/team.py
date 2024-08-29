@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import List
+from typing import List, Optional
 
 from quart import Blueprint
 from quart_schema import validate_request, validate_response
@@ -19,15 +19,16 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PartialTeam:
     """partial team data, potentially not existent in the database yet"""
-    name: str | None
-    description: str | None
-    logo_url: str | None
+    name: Optional[str] = None
+    tag: Optional[str] = None
+    description: Optional[str] = None
+    logo_url: Optional[str] = None
 
 
 @dataclass
 class Team(PartialTeam):
     """existing team, including its id"""
-    id: int
+    id: int = 0
 
 
 @blue.route('/', methods=['GET'])
@@ -56,7 +57,7 @@ async def delete_team(team_id: int):
 @requires_login(redirect_on_failure=False)
 @requires_match_maker_admin()
 @validate_request(PartialTeam)
-@validate_response(Team)
+@validate_response(Team, HTTPStatus.CREATED)
 async def create_new_team(data: PartialTeam) -> Team:
     """create a new team"""
     if data.name is None or len(data.name) == 0:
@@ -65,3 +66,36 @@ async def create_new_team(data: PartialTeam) -> Team:
     t = model.Team(name=data.name, description=data.description, logo_url=data.logo_url)
     t.save()
     return Team(**model_to_dict(t))
+
+
+@blue.route('/<int:team_id>', methods=['PATCH'])
+@requires_login(redirect_on_failure=False)
+@requires_match_maker_admin()
+@validate_request(PartialTeam)
+async def update_team_data(team_id: int, data: PartialTeam):
+    """update an existing team"""
+    if data.name is not None and len(data.name) == 0:
+        return "a team name is required", HTTPStatus.BAD_REQUEST
+
+    t = model.Team.get_by_id(team_id)
+
+    if data.name is not None:
+        if len(data.name) == 0:
+            return "a team name is required", HTTPStatus.BAD_REQUEST
+        t.name = data.name
+
+    if data.tag is not None:
+        #t.tag = data.tag
+        pass # TODO
+
+    if data.description is not None:
+        t.description = data.description
+
+    if data.logo_url is not None:
+        # t.logo_url =
+        # TODO - logo upload?
+        pass
+
+    t.save()
+
+    return "", HTTPStatus.OK
