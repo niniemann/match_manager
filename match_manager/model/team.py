@@ -12,7 +12,6 @@ class Team(pw.Model):
 
     name = pw.CharField()
     description = pw.TextField(null=True)
-    logo_url = pw.CharField(null=True)
 
 class TeamManager(pw.Model):
     class Meta:

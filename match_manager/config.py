@@ -3,6 +3,7 @@
 import logging
 import tomllib
 from dataclasses import dataclass
+from pathlib import Path
 
 import cerberus
 
@@ -17,6 +18,7 @@ class Environment:
 class Webserver:
     """webserver configuration"""
     secret: bytes  # secret key for the webserver
+    upload_folder: str  # location for uploads, e.g. team-logos
 
 @dataclass
 class Discord:
@@ -39,6 +41,7 @@ schema = {
         'type': 'dict',
         'schema': {
             'secret': { 'type': 'string' },
+            'upload_folder': { 'type': 'string' }
         },
     },
     'discord' : {

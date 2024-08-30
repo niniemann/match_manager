@@ -4,7 +4,6 @@ import {
   Button,
   Header,
   Alert,
-  Container,
   Form,
   SpaceBetween,
   FormField,
@@ -12,11 +11,30 @@ import {
   Modal,
   Textarea,
   Flashbar,
+  Box,
+  FileUpload,
+  ColumnLayout,
 } from "@cloudscape-design/components";
 
 import axios from "axios";
 
 import { CriticalConfirmationDialog } from "../../components/Dialogs";
+import styled from "styled-components";
+
+const ImageContainer = styled(Box)`
+  width: 100%;
+  padding-top: 100%; /* 1:1 aspect ration */
+  position: relative;
+`;
+
+const StyledImage = styled.img`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+`;
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
@@ -34,6 +52,7 @@ function TeamEditForm({ team, onSave, onCancel }) {
   const [name, setName] = useState(team?.name || "");
   const [tag, setTag] = useState(team?.tag || "");
   const [description, setDescription] = useState(team?.description || "");
+  const [newLogoFile, setNewLogoFile] = useState(undefined);
 
   const [submitError, setSubmitError] = useState("");
 
@@ -52,19 +71,31 @@ function TeamEditForm({ team, onSave, onCancel }) {
       if (description !== team?.description) {
         changes.description = description;
       }
+
+      if (newLogoFile) {
+        changes.logo = newLogoFile;
+      }
+
       onSave(changes, setSubmitError);
     } else {
       // when creating a new team, just forward all data, even empty strings
-      const newTeam = {
+      let newTeam = {
         name: name,
         tag: tag,
         description: description,
       };
+
+      // but only add a logo if one was set -- prevent sending "undefined"
+      if (newLogoFile) {
+        newTeam.logo = newLogoFile;
+      }
+
       onSave(newTeam, setSubmitError);
     }
   };
 
-  const hasUnsavedChanges = name !== team?.name || tag !== team?.tag || description !== team?.description;
+  const hasUnsavedChanges =
+    name !== team?.name || tag !== team?.tag || description !== team?.description || newLogoFile;
   return (
     <form onSubmit={handleSubmit}>
       <Form
@@ -89,6 +120,32 @@ function TeamEditForm({ team, onSave, onCancel }) {
           </FormField>
           <FormField label="Description">
             <Textarea value={description} onChange={(e) => setDescription(e.detail.value)} />
+          </FormField>
+          <FormField label="Logo">
+            <ColumnLayout columns={2}>
+              {team && (
+                <ImageContainer>
+                  <StyledImage src={team ? `${API_ENDPOINT}/teams/${team.id}/logo` : ""} />
+                </ImageContainer>
+              )}
+              <FileUpload
+                onChange={({ detail }) => {
+                  console.log(detail);
+                  setNewLogoFile(detail.value.length > 0 ? detail.value[0] : undefined);
+                }}
+                value={newLogoFile ? [newLogoFile] : []}
+                showFileThumbnail
+                accept="image/png"
+                i18nStrings={{
+                  uploadButtonText: (_) => "Choose file",
+                  dropzoneText: (_) => "Drop file to upload",
+                  removeFileAriaLabel: (_) => "Remove file",
+                  limitShowFewer: (_) => "Show fewer files",
+                  limitShowMore: (_) => "Show more files",
+                  errorIconAriaLabel: (_) => "Error",
+                }}
+              />
+            </ColumnLayout>
           </FormField>
         </SpaceBetween>
       </Form>
@@ -168,24 +225,36 @@ export function TeamsTable() {
   };
 
   const handleSaveTeam = (team, setError) => {
+    // make it multipart-form, to allow inclusion of an image
+    const data = new FormData();
+    for (const key in team) {
+      data.append(key, team[key]);
+    }
+
     if (team.id !== undefined) {
       axios
-        .patch(`${API_ENDPOINT}/teams/${team.id}`, team, { withCredentials: true })
-        .then(() => {
+        .patch(`${API_ENDPOINT}/teams/${team.id}`, data, { withCredentials: true })
+        .then((result) => {
           setIsTeamFormVisible(false);
-          showSuccess(`Saved Team "(id: ${team.id}) ${team.name}"`);
+          showSuccess(`Saved Team "(id: ${result.data.id}) ${result.data.name}"`);
           updateTeamsTable();
         })
-        .catch((error) => setError(error.response?.data || error.message));
+        .catch((error) => {
+          console.log(error);
+          setError(error.response?.data || error.message);
+        });
     } else {
       axios
-        .post(`${API_ENDPOINT}/teams/`, team, { withCredentials: true })
+        .post(`${API_ENDPOINT}/teams/`, data, { withCredentials: true })
         .then((result) => {
           setIsTeamFormVisible(false);
           showSuccess(`Created new team "(id: ${result.data.id}) ${result.data.name}"`);
           updateTeamsTable();
         })
-        .catch((error) => setError(error.response?.data || error.message));
+        .catch((error) => {
+          console.log(error);
+          setError(error.response?.data || error.message);
+        });
     }
   };
 
@@ -221,6 +290,16 @@ export function TeamsTable() {
               header: "Team Id",
               cell: (item) => item.id,
               isRowHeader: true,
+            },
+            {
+              id: "logo",
+              header: "Logo",
+              cell: (item) => (
+
+                <div style={{width: "50px", height: "50px", display: "flex"}}>
+                  <img style={{width: "100%", height: "auto", objectFit: "contain"}} src={`${API_ENDPOINT}/teams/${item.id}/logo`} />
+                </div>
+              ),
             },
             {
               id: "name",

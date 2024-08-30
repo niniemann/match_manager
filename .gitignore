@@ -5,3 +5,6 @@ __pycache__
 .vscode/
 .env
 database/
+
+# uploaded files, e.g. team-logos
+/uploads
