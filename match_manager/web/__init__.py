@@ -11,6 +11,8 @@ from pydantic import ValidationError
 from .. import config
 from .api import login, team
 
+from match_manager.model import auth
+
 # serve the react application, built with `npm run build` in `client/`, as static files
 app = Quart(__name__, static_url_path='/', static_folder='client/build')
 app = cors(app)
@@ -31,6 +33,18 @@ async def handle_response_validation_error(error: ResponseSchemaValidationError)
         "title": f'{error.code}: ResponseError (Woops! Internal!)',
         "errors": val_err.errors(),
     }, HTTPStatus.INTERNAL_SERVER_ERROR
+
+@app.errorhandler(auth.PermissionDenied)
+async def handle_permission_denied(error: auth.PermissionDenied):
+    return {
+        "title": "Permission Denied",
+        "errors": [
+            {
+                "msg": str(error)
+            }
+        ]
+    }, HTTPStatus.UNAUTHORIZED
+
 
 # configure secrets for oauth2 -- login with discord
 app.secret_key = config.webserver.secret

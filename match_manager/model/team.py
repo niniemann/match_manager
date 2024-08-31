@@ -9,27 +9,8 @@ from typing import Optional
 from pathlib import Path
 
 from match_manager import config
-
-db_proxy = pw.DatabaseProxy()
-
-"""
-The database models, for peewee
-"""
-
-class Team(pw.Model):
-    class Meta:
-        database = db_proxy
-
-    name = pw.CharField()
-    tag = pw.CharField()
-    description = pw.TextField(default="")
-
-class TeamManager(pw.Model):
-    class Meta:
-        database = db_proxy
-
-    discord_user_id = pw.BigIntegerField()
-    team = pw.ForeignKeyField(Team, on_delete='CASCADE', backref='managers')
+from .db.team import Team, TeamManager
+from . import auth, db
 
 
 """
@@ -78,9 +59,10 @@ async def get_teams() -> list[TeamResponse]:
 
 
 @validate_call
-async def create_new_team(team_data: NewTeamData) -> TeamResponse:
+@auth.requires_admin()
+async def create_new_team(team_data: NewTeamData, author: auth.User) -> TeamResponse:
     """create a new team"""
-    with db_proxy.atomic() as txn:
+    with db.proxy.atomic() as txn:
         # create the team entry
         t = Team(
             name=team_data.name,
@@ -99,9 +81,10 @@ async def create_new_team(team_data: NewTeamData) -> TeamResponse:
 
 
 @validate_call
-async def update_team_data(team_id: int, update: UpdateTeamData) -> TeamResponse:
+@auth.requires_admin()  # TODO: Allow match manager to edit _some_ of the values
+async def update_team_data(team_id: int, update: UpdateTeamData, author: auth.User) -> TeamResponse:
     """patch an existing team"""
-    with db_proxy.atomic() as txn:
+    with db.proxy.atomic() as txn:
         t = Team.get_by_id(team_id)
 
         t.name = t.name if update.name is None else update.name
@@ -119,6 +102,7 @@ async def update_team_data(team_id: int, update: UpdateTeamData) -> TeamResponse
 
 
 @validate_call
-async def delete_team(team_id: int):
+@auth.requires_admin()
+async def delete_team(team_id: int, author: auth.User):
     """delete a team by its id"""
     Team.delete_by_id(team_id)

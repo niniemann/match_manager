@@ -14,8 +14,6 @@ import { SunIcon as SunIconOutline, MoonIcon as MoonIconOutline } from "@heroico
 import TopNavigation from "@cloudscape-design/components/top-navigation";
 import { applyMode, Mode } from "@cloudscape-design/global-styles";
 
-import { getDiscordAvatarUrl } from "./util.js";
-
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
 function App() {
@@ -58,22 +56,18 @@ function App() {
     // or team manager
     const fetchData = async () => {
       const user = await axios(`${API_ENDPOINT}/current-user`, { withCredentials: true });
-      const perm = await axios(`${API_ENDPOINT}/current-user/permissions`, { withCredentials: true });
 
-      const username = "global_name" in user.data ? user.data["global_name"] : user.data["username"];
-
-      if (username) {
+      if (user.data.name) {
         set_user_menu_or_login({
           ...user_menu,
-          text: username,
-          iconUrl: getDiscordAvatarUrl(user.data),
+          text: user.data.name,
+          iconUrl: user.data.avatar_url,
         });
       } else {
         set_user_menu_or_login(login_button);
       }
 
-      set_is_admin_or_manager(perm.data.is_admin || perm.data.is_manager_for_teams.length > 0);
-      console.log(perm.data);
+      set_is_admin_or_manager(user.data.is_admin || user.data.is_manager_for_teams.length > 0);
     };
 
     fetchData();

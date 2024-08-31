@@ -28,7 +28,7 @@ def connect_database():
         connect_timeout=2,
     )
 
-    model.team.db_proxy.initialize(database)
+    model.db.proxy.initialize(database)
 
     database.connect()
     database.evolve()

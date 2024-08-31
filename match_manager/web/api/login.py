@@ -12,6 +12,8 @@ from quart_schema import hide, validate_response
 from match_manager import config
 from match_manager import bot as discord_bot
 from match_manager import model
+from match_manager.model import auth
+from match_manager.util import ArgExtractor
 
 blue = Blueprint('login', __name__)
 
@@ -21,17 +23,28 @@ AUTHORIZATION_BASE_URL = 'https://discord.com/oauth2/authorize'
 FETCH_TOKEN_URL='https://discord.com/api/oauth2/token'
 
 
-def requires_login(*, redirect_on_failure: bool):
+def requires_login(*, redirect_on_failure: bool = False, user_arg='author'):
     """
     Route-decorator to require a login. Does not check for special roles/permissions.
+    Fetches user information and forwards it as a keyword argument as specified in "user_arg" to
+    the wrapped function.
 
     @param redirect_on_failure: If true, redirects to the login page (-> discord); otherwise returns a 401
     """
     def _requires_login(f):
+        # create an ArgExtractor, to raise an exception if the argument does not exist in the functions signature
+        ArgExtractor(f, user_arg, model.auth.User)
+
         @wraps(f)
         async def __requires_login(*args, **kwargs):
             if 'discord_user_data' in session:
-                return await f(*args, **kwargs)
+                # fetch the user permissions info etc...
+                user_id = session['discord_user_data']['id']
+                user_info = await model.auth.get_user_info(user_id)
+
+                # ... and inject it into the call
+                kwargs[user_arg] = user_info
+                return await f(*args, **kwargs, )
 
             if redirect_on_failure:
                 return redirect(url_for('.login'))
@@ -39,27 +52,6 @@ def requires_login(*, redirect_on_failure: bool):
 
         return __requires_login
     return _requires_login
-
-
-def requires_match_maker_admin():
-    """
-    Route-decorator to require a valid match-manager-admin.
-    (The global admin role, not team-specific.)
-
-    Assumes the existence of `discord_user_data` on the session, i.e. a logged-in user!
-    """
-    def _decorator(f):
-        @wraps(f)
-        async def __decorator(*args, **kwargs):
-            discord_user_id = session['discord_user_data']['id']
-            is_admin = await discord_bot.get().is_match_manager_admin(discord_user_id)
-            if not is_admin:
-                return 'admin rights required', HTTPStatus.UNAUTHORIZED
-            return await f(*args, **kwargs)
-
-        return __decorator
-    return _decorator
-
 
 
 @blue.route('/login')
@@ -133,35 +125,11 @@ async def logout():
 
 
 @blue.route('/api/current-user')
-async def current_user():
-    """returns information about the currently logged in user"""
-    if 'discord_user_data' in session:
-        return session['discord_user_data']
-
-    # just an empty dict if not logged in
-    return {}
-
-
-@dataclass
-class UserPermissions:
-    """permissions of a user"""
-    is_admin: bool  # whether the user is an administrator the for league/tournament
-    is_manager_for_teams: list[int]  # the list of teams this user is a manager for
-
-
-@blue.route('/api/current-user/permissions')
-@validate_response(UserPermissions)
-async def current_user_permissions():
+@validate_response(auth.User)
+async def current_user_permissions() -> auth.User:
     """returns permission information for the currently logged in user"""
 
     if 'discord_user_data' not in session:
-        return UserPermissions(is_admin=False, is_manager_for_teams=[])
-
+        return auth.EmptyUser
     user_id = session['discord_user_data']['id']
-
-    is_admin = await discord_bot.get().is_match_manager_admin(user_id)
-
-    TeamManager = model.team.TeamManager
-    teams = TeamManager.select().where(TeamManager.discord_user_id==user_id)
-
-    return UserPermissions(is_admin=is_admin, is_manager_for_teams=[team.id for team in teams])  # pylint: disable=not-an-iterable
+    return await auth.get_user_info(user_id)

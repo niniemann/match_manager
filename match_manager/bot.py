@@ -31,10 +31,16 @@ class MatchManagerBot(discord.Bot):
         config.toml of this application.
         """
 
-        member = self._admin_guild.get_member(int(user_id)) or await self._admin_guild.fetch_member(int(user_id))
+        member = await self.get_admin_guild_member(user_id)
         is_admin = self._admin_role and member and self._admin_role in member.roles
         logger.debug((user_id, member and member.name, 'is admin?', is_admin))
         return is_admin
+
+    async def get_admin_guild_member(self, user_id: int | str) -> discord.Member:
+        """
+        Returns a member object representing the user in the tournament discord server
+        """
+        return self._admin_guild.get_member(int(user_id)) or await self._admin_guild.fetch_member(int(user_id))
 
 
 _instance: MatchManagerBot | None = None

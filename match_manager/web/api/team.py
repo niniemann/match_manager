@@ -12,8 +12,9 @@ from quart_schema import validate_request, validate_response, DataSource
 
 from playhouse.shortcuts import model_to_dict
 
-from match_manager.web.api.login import requires_login, requires_match_maker_admin
+from match_manager.web.api.login import requires_login
 from match_manager.model import team as model
+from match_manager.model import auth
 from match_manager import config
 
 blue = Blueprint('teams', __name__, url_prefix='/api/teams')
@@ -35,30 +36,27 @@ async def show_team(team_id: int):
 
 
 @blue.route('/<int:team_id>', methods=["DELETE"])
-@requires_login(redirect_on_failure=False)
-@requires_match_maker_admin()
-async def delete_team(team_id: int):
+@requires_login()
+async def delete_team(team_id: int, author: auth.User):
     """deletes a single team, by id"""
-    await model.delete_team(team_id)
+    await model.delete_team(team_id, author)
     return "", HTTPStatus.NO_CONTENT
 
 
 @blue.route('/', methods=['POST'])
-@requires_login(redirect_on_failure=False)
-@requires_match_maker_admin()
+@requires_login()
 @validate_request(model.NewTeamData, source=DataSource.FORM_MULTIPART)
 @validate_response(model.TeamResponse, HTTPStatus.CREATED)
-async def create_new_team(data: model.NewTeamData) -> model.TeamResponse:
+async def create_new_team(data: model.NewTeamData, author: auth.User) -> model.TeamResponse:
     """create a new team"""
-    return await model.create_new_team(data)
+    return await model.create_new_team(data, author)
 
 
 @blue.route('/<int:team_id>', methods=['PATCH'])
-@requires_login(redirect_on_failure=False)
-@requires_match_maker_admin()
+@requires_login()
 @validate_request(model.UpdateTeamData, source=DataSource.FORM_MULTIPART)
 @validate_response(model.TeamResponse)
-async def update_team_data(team_id: int, data: model.UpdateTeamData):
+async def update_team_data(team_id: int, data: model.UpdateTeamData, author: auth.User):
     """update an existing team"""
     return await model.update_team_data(team_id, data)
 
@@ -74,11 +72,10 @@ async def get_team_logo(team_id: int):
     etag = hashlib.md5(f"{stat.st_mtime}-{stat.st_size}".encode()).hexdigest()
 
     if_none_match = request.headers.get('If-None-Match')
-    print("etag?", if_none_match, etag)
     if if_none_match == etag:
         return '', HTTPStatus.NOT_MODIFIED
 
     response = await send_from_directory(folder, filename)
     response.headers['ETag'] = etag
-    response.headers['cache-control'] = 'no-store'
+    response.headers['cache-control'] = 'no-cache'
     return response
