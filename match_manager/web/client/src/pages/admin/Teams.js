@@ -18,7 +18,7 @@ import {
 
 import axios from "axios";
 
-import { CriticalConfirmationDialog } from "../../components/Dialogs";
+import { CriticalConfirmationDialog, ApiCallError } from "../../components/Dialogs";
 import styled from "styled-components";
 
 const ImageContainer = styled(Box)`
@@ -109,7 +109,6 @@ function TeamEditForm({ team, onSave, onCancel }) {
             </Button>
           </SpaceBetween>
         }
-        errorText={submitError}
       >
         <SpaceBetween size="l">
           <FormField label="Name">
@@ -147,6 +146,7 @@ function TeamEditForm({ team, onSave, onCancel }) {
               />
             </ColumnLayout>
           </FormField>
+          {submitError && <ApiCallError error={submitError} />}
         </SpaceBetween>
       </Form>
     </form>

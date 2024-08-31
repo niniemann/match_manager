@@ -1,10 +1,12 @@
 """everything for the web application"""
 
 import os
+from http import HTTPStatus
 
-from quart import Quart, url_for, render_template, send_file
+from quart import Quart, url_for, render_template, send_file, jsonify
 from quart_cors import cors
-from quart_schema import QuartSchema, hide
+from quart_schema import QuartSchema, hide, RequestSchemaValidationError, ResponseSchemaValidationError
+from pydantic import ValidationError
 
 from .. import config
 from .api import login, team
@@ -13,6 +15,22 @@ from .api import login, team
 app = Quart(__name__, static_url_path='/', static_folder='client/build')
 app = cors(app)
 QuartSchema(app, swagger_ui_path='/api/docs')
+
+@app.errorhandler(RequestSchemaValidationError)
+async def handle_request_validation_error(error: RequestSchemaValidationError):
+    val_err: ValidationError = error.validation_error
+    return {
+        "title": f'{error.code}: ValidationError',
+        "errors": val_err.errors(),
+    }, HTTPStatus.BAD_REQUEST
+
+@app.errorhandler(ResponseSchemaValidationError)
+async def handle_response_validation_error(error: ResponseSchemaValidationError):
+    val_err: ValidationError = error.validation_error
+    return {
+        "title": f'{error.code}: ResponseError (Woops! Internal!)',
+        "errors": val_err.errors(),
+    }, HTTPStatus.INTERNAL_SERVER_ERROR
 
 # configure secrets for oauth2 -- login with discord
 app.secret_key = config.webserver.secret

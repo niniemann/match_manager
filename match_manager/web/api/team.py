@@ -4,13 +4,11 @@ import os
 import hashlib
 import logging
 from pathlib import Path
-from dataclasses import dataclass
 from http import HTTPStatus
-from typing import List, Optional
+from typing import List
 
 from quart import Blueprint, send_from_directory, request
 from quart_schema import validate_request, validate_response, DataSource
-from quart_schema.pydantic import File
 
 from playhouse.shortcuts import model_to_dict
 
@@ -21,100 +19,48 @@ from match_manager import config
 blue = Blueprint('teams', __name__, url_prefix='/api/teams')
 logger = logging.getLogger(__name__)
 
-@dataclass
-class PartialTeam:
-    """partial team data, potentially not existent in the database yet"""
-    name: Optional[str] = None
-    tag: Optional[str] = None
-    description: Optional[str] = None
-    logo: Optional[File] = None
-
-@dataclass
-class Team(PartialTeam):
-    """existing team, including its id"""
-    id: int = 0
-
 
 @blue.route('/', methods=['GET'])
-@validate_response(List[Team])
+@validate_response(List[model.TeamResponse])
 async def list_teams():
     """lists all teams"""
-    return list(model.Team.select().dicts())
+    return await model.get_teams()
 
 
 @blue.route('/<int:team_id>', methods=['GET'])
-@validate_response(Team)
+@validate_response(model.TeamResponse)
 async def show_team(team_id: int):
     """returns info of a single team"""
-    return model_to_dict(model.Team.get_by_id(team_id))
+    return await model.get_team(team_id)
+
 
 @blue.route('/<int:team_id>', methods=["DELETE"])
 @requires_login(redirect_on_failure=False)
 @requires_match_maker_admin()
 async def delete_team(team_id: int):
     """deletes a single team, by id"""
-    model.Team.delete_by_id(team_id)
+    await model.delete_team(team_id)
     return "", HTTPStatus.NO_CONTENT
 
 
 @blue.route('/', methods=['POST'])
 @requires_login(redirect_on_failure=False)
 @requires_match_maker_admin()
-@validate_request(PartialTeam, source=DataSource.FORM_MULTIPART)
-@validate_response(Team, HTTPStatus.CREATED)
-async def create_new_team(data: PartialTeam) -> Team:
+@validate_request(model.NewTeamData, source=DataSource.FORM_MULTIPART)
+@validate_response(model.TeamResponse, HTTPStatus.CREATED)
+async def create_new_team(data: model.NewTeamData) -> model.TeamResponse:
     """create a new team"""
-    print(data)
-    if data.name is None or len(data.name) == 0:
-        return "a team name is required", HTTPStatus.BAD_REQUEST
-
-    t = model.Team(name=data.name, description=data.description)
-    t.save()
-
-    if data.logo:
-        storage_path = Path(config.webserver.upload_folder) / "team_logos"
-        storage_path.mkdir(parents=True, exist_ok=True)
-        print(storage_path)
-        await data.logo.save(storage_path / f'{t.id}.png')
-
-    return Team(**model_to_dict(t))
+    return await model.create_new_team(data)
 
 
 @blue.route('/<int:team_id>', methods=['PATCH'])
 @requires_login(redirect_on_failure=False)
 @requires_match_maker_admin()
-@validate_request(PartialTeam, source=DataSource.FORM_MULTIPART)
-@validate_response(Team)
-async def update_team_data(team_id: int, data: PartialTeam):
+@validate_request(model.UpdateTeamData, source=DataSource.FORM_MULTIPART)
+@validate_response(model.TeamResponse)
+async def update_team_data(team_id: int, data: model.UpdateTeamData):
     """update an existing team"""
-    print(data)
-    if data.name is not None and len(data.name) == 0:
-        return "a team name is required", HTTPStatus.BAD_REQUEST
-
-    t = model.Team.get_by_id(team_id)
-
-    if data.name is not None:
-        if len(data.name) == 0:
-            return "a team name is required", HTTPStatus.BAD_REQUEST
-        t.name = data.name
-
-    if data.tag is not None:
-        #t.tag = data.tag
-        pass # TODO
-
-    if data.description is not None:
-        t.description = data.description
-
-    t.save()
-
-    if data.logo:
-        # store the logos in the build folder
-        storage_path = Path(config.webserver.upload_folder) / "team_logos"
-        storage_path.mkdir(parents=True, exist_ok=True)
-        print(storage_path)
-        await data.logo.save(storage_path / f'{team_id}.png')
-
-    return Team(**model_to_dict(t)), HTTPStatus.OK
+    return await model.update_team_data(team_id, data)
 
 
 @blue.route('/<int:team_id>/logo')
