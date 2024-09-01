@@ -50,7 +50,7 @@ def requires_admin(user_arg_name: str = 'author'):
     This requires that the function is passed a auth.User object as the argument with the
     name specified as 'user_arg_name'. It is that object which is inspected for the admin rights.
     """
-    def _requires_admin(f: Callable):
+    def _requires_admin(f):
         get_user = ArgExtractor(function=f, arg_name=user_arg_name, arg_type=User)
 
         @wraps(f)

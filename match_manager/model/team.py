@@ -10,7 +10,7 @@ from pathlib import Path
 
 from match_manager import config
 from .db.team import Team, TeamManager
-from . import auth, db
+from . import auth, db, user
 
 
 """
@@ -40,6 +40,8 @@ class TeamResponse(BaseModel):
     name: str
     tag: str
     description: str = Field(default="")
+    # managers may be only included in single-team query results
+    managers: Optional[list[user.DiscordMemberInfo]] = Field(default=None)
 
 
 """
@@ -50,12 +52,18 @@ and may handle permissions, events and logging in the future.
 @validate_call
 async def get_team(team_id: int) -> TeamResponse:
     """fetch a team from the database"""
-    return TeamResponse(*model_to_dict(Team.get_by_id(team_id)))
+    team = Team.get_by_id(team_id)
+    response = TeamResponse(**model_to_dict(team))
+    # since only a single team is queried, include extra information, i.e. the team managers
+    response.managers = [
+        user.get_user(m.discord_user_id) for m in team.managers
+    ]
+    return response
 
 
 async def get_teams() -> list[TeamResponse]:
     """fetch all teams from the database"""
-    return list(TeamResponse(**kwargs) for kwargs in Team.select().dicts())
+    return list(TeamResponse(**model_to_dict(t)) for t in Team.select())
 
 
 @validate_call

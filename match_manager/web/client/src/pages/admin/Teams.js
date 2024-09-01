@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useDebugValue } from "react";
 import {
   Table,
   Button,
@@ -14,6 +14,7 @@ import {
   Box,
   FileUpload,
   ColumnLayout,
+  TokenGroup,
 } from "@cloudscape-design/components";
 
 import axios from "axios";
@@ -48,27 +49,88 @@ function removeTeam(team_id) {
   return axios.delete(`${API_ENDPOINT}/teams/${team_id}`, { withCredentials: true });
 }
 
-function TeamEditForm({ team, onSave, onCancel }) {
-  const [name, setName] = useState(team?.name || "");
-  const [tag, setTag] = useState(team?.tag || "");
-  const [description, setDescription] = useState(team?.description || "");
+/// form to either create new teams, or edit existing ones -- admin view, all fields editable
+/// if given a team_id, it fetches that teams data (in order to get everything, including extra
+/// data that is not retrieved in a call to all-teams, like team-manager information)
+function TeamEditForm({ team_id, onSuccess, onCancel }) {
+  const isNewTeam = team_id === undefined;
+  const [oldTeamData, setOldTeamData] = useState({});
+  const [name, setName] = useState("");
+  const [tag, setTag] = useState("");
+  const [description, setDescription] = useState("");
   const [newLogoFile, setNewLogoFile] = useState(undefined);
+  const [managers, setManagers] = useState([]);
 
   const [submitError, setSubmitError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
+  const fetchTeamData = async () => {
+    try {
+      const { data } = await axios.get(`${API_ENDPOINT}/teams/${team_id}`);
+      console.log(data);
+      setOldTeamData(data);
+      setName(data.name);
+      setTag(data.tag);
+      setDescription(data.description);
+      setManagers(data.managers);
+    } catch (error) {
+      setSubmitError(error.response?.data || error.message);
+      throw error;
+    }
+  };
+
+  /// create a new team from the given data
+  const createNewTeam = (team) => {
+    // make it multipart-form, to allow inclusion of an image
+    const data = new FormData();
+    for (const key in team) {
+      data.append(key, team[key]);
+    }
+
+    axios
+      .post(`${API_ENDPOINT}/teams/`, data, { withCredentials: true })
+      .then((result) => {
+        onSuccess(`Created new team "(id: ${result.data.id}) ${result.data.name}"`);
+      })
+      .catch((error) => {
+        console.log(error);
+        setSubmitError(error.response?.data || error.message);
+      });
+  };
+
+  /// edit an existing team with the given data
+  const saveExistingTeam = (team) => {
+    // make it multipart-form, to allow inclusion of an image
+    const data = new FormData();
+    for (const key in team) {
+      data.append(key, team[key]);
+    }
+
+    axios
+      .patch(`${API_ENDPOINT}/teams/${team.id}`, data, { withCredentials: true })
+      .then((result) => {
+        onSuccess(`Saved Team "(id: ${result.data.id}) ${result.data.name}"`);
+      })
+      .catch((error) => {
+        console.log(error);
+        setSubmitError(error.response?.data || error.message);
+      });
+  };
+
+  /// on submit, save or create the team
   const handleSubmit = (event) => {
     event.preventDefault();
 
-    if (team) {
+    if (!isNewTeam) {
       // when editing an existing team, only forward the changed properties
-      let changes = { id: team.id };
-      if (name !== team?.name) {
+      let changes = { id: team_id };
+      if (name !== oldTeamData?.name) {
         changes.name = name;
       }
-      if (tag !== team?.tag) {
+      if (tag !== oldTeamData?.tag) {
         changes.tag = tag;
       }
-      if (description !== team?.description) {
+      if (description !== oldTeamData?.description) {
         changes.description = description;
       }
 
@@ -76,7 +138,7 @@ function TeamEditForm({ team, onSave, onCancel }) {
         changes.logo = newLogoFile;
       }
 
-      onSave(changes, setSubmitError);
+      saveExistingTeam(changes);
     } else {
       // when creating a new team, just forward all data, even empty strings
       let newTeam = {
@@ -90,12 +152,27 @@ function TeamEditForm({ team, onSave, onCancel }) {
         newTeam.logo = newLogoFile;
       }
 
-      onSave(newTeam, setSubmitError);
+      createNewTeam(newTeam);
     }
   };
 
   const hasUnsavedChanges =
-    name !== team?.name || tag !== team?.tag || description !== team?.description || newLogoFile;
+    name !== oldTeamData?.name || tag !== oldTeamData?.tag || description !== oldTeamData?.description || newLogoFile;
+
+  useEffect(() => {
+    if (!isNewTeam) {
+      setIsLoading(true);
+      fetchTeamData()
+        .then(() => setIsLoading(false))
+        .catch((error) => {
+          // just to disable the input fields:
+          setIsLoading(true);
+        });
+    } else {
+      setIsLoading(false);
+    }
+  }, [isNewTeam, team_id]);
+
   return (
     <form onSubmit={handleSubmit}>
       <Form
@@ -104,30 +181,32 @@ function TeamEditForm({ team, onSave, onCancel }) {
             <Button formAction="none" variant="link" onClick={onCancel}>
               Cancel
             </Button>
-            <Button variant="primary" disabled={!hasUnsavedChanges}>
-              {team ? "Save" : "Create"}
+            <Button variant="primary" disabled={!hasUnsavedChanges || isLoading}>
+              {isNewTeam ? "Create" : "Save"}
             </Button>
           </SpaceBetween>
         }
       >
         <SpaceBetween size="l">
           <FormField label="Name">
-            <Input value={name} onChange={(e) => setName(e.detail.value)} />
+            <Input value={name} disabled={isLoading} onChange={(e) => setName(e.detail.value)} />
           </FormField>
           <FormField label="Tag">
-            <Input value={tag} onChange={(e) => setTag(e.detail.value)} />
+            <Input value={tag} disabled={isLoading} onChange={(e) => setTag(e.detail.value)} />
           </FormField>
           <FormField label="Description">
-            <Textarea value={description} onChange={(e) => setDescription(e.detail.value)} />
+            <Textarea value={description} disabled={isLoading} onChange={(e) => setDescription(e.detail.value)} />
           </FormField>
+          <FormField label="Team Managers">{/* <TokenGroup TODO*/}</FormField>
           <FormField label="Logo">
             <ColumnLayout columns={2}>
-              {team && (
+              {!isNewTeam && (
                 <ImageContainer>
-                  <StyledImage src={team ? `${API_ENDPOINT}/teams/${team.id}/logo` : ""} />
+                  <StyledImage src={isNewTeam ? "" : `${API_ENDPOINT}/teams/${team_id}/logo`} />
                 </ImageContainer>
               )}
               <FileUpload
+                disabled={isLoading}
                 onChange={({ detail }) => {
                   console.log(detail);
                   setNewLogoFile(detail.value.length > 0 ? detail.value[0] : undefined);
@@ -224,40 +303,6 @@ export function TeamsTable() {
     setIsTeamFormVisible(true);
   };
 
-  const handleSaveTeam = (team, setError) => {
-    // make it multipart-form, to allow inclusion of an image
-    const data = new FormData();
-    for (const key in team) {
-      data.append(key, team[key]);
-    }
-
-    if (team.id !== undefined) {
-      axios
-        .patch(`${API_ENDPOINT}/teams/${team.id}`, data, { withCredentials: true })
-        .then((result) => {
-          setIsTeamFormVisible(false);
-          showSuccess(`Saved Team "(id: ${result.data.id}) ${result.data.name}"`);
-          updateTeamsTable();
-        })
-        .catch((error) => {
-          console.log(error);
-          setError(error.response?.data || error.message);
-        });
-    } else {
-      axios
-        .post(`${API_ENDPOINT}/teams/`, data, { withCredentials: true })
-        .then((result) => {
-          setIsTeamFormVisible(false);
-          showSuccess(`Created new team "(id: ${result.data.id}) ${result.data.name}"`);
-          updateTeamsTable();
-        })
-        .catch((error) => {
-          console.log(error);
-          setError(error.response?.data || error.message);
-        });
-    }
-  };
-
   /// only once when loading the teams table: fetch and display the data
   useEffect(() => {
     updateTeamsTable();
@@ -272,8 +317,12 @@ export function TeamsTable() {
           header={currentTeam ? "Edit Team" : "Create Team"}
         >
           <TeamEditForm
-            team={currentTeam}
-            onSave={handleSaveTeam}
+            team_id={currentTeam?.id}
+            onSuccess={(msg) => {
+              showSuccess(msg);
+              updateTeamsTable();
+              setIsTeamFormVisible(false);
+            }}
             onCancel={() => {
               setIsTeamFormVisible(false);
             }}
@@ -295,9 +344,11 @@ export function TeamsTable() {
               id: "logo",
               header: "Logo",
               cell: (item) => (
-
-                <div style={{width: "50px", height: "50px", display: "flex"}}>
-                  <img style={{width: "100%", height: "auto", objectFit: "contain"}} src={`${API_ENDPOINT}/teams/${item.id}/logo`} />
+                <div style={{ width: "50px", height: "50px", display: "flex" }}>
+                  <img
+                    style={{ width: "100%", height: "auto", objectFit: "contain" }}
+                    src={`${API_ENDPOINT}/teams/${item.id}/logo`}
+                  />
                 </div>
               ),
             },

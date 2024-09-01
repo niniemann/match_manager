@@ -9,7 +9,7 @@ from quart_schema import QuartSchema, hide, RequestSchemaValidationError, Respon
 from pydantic import ValidationError
 
 from .. import config
-from .api import login, team
+from .api import login, team, user
 
 from match_manager.model import auth
 
@@ -32,6 +32,17 @@ async def handle_response_validation_error(error: ResponseSchemaValidationError)
     return {
         "title": f'{error.code}: ResponseError (Woops! Internal!)',
         "errors": val_err.errors(),
+    }, HTTPStatus.INTERNAL_SERVER_ERROR
+
+@app.errorhandler(ValidationError)
+async def handle_pydantic_validation_error(error: ValidationError):
+    return {
+        "title": f'500: Internal Validation Error',
+        "errors": [{
+            'type': e['type'],
+            'loc': e['loc'],
+            'msg': e['msg'],
+        } for e in error.errors()],
     }, HTTPStatus.INTERNAL_SERVER_ERROR
 
 @app.errorhandler(auth.PermissionDenied)
@@ -66,6 +77,7 @@ if config.environment.developer_mode:
 # register the different routes from their blueprints
 app.register_blueprint(login.blue)
 app.register_blueprint(team.blue)
+app.register_blueprint(user.blue)
 
 # The react app does client-side routing for different component pages.
 # This works fine when starting from the index page '/', as the react router will catch links to

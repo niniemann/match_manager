@@ -1,1 +1,1 @@
-from . import team, auth, db
+from . import team, auth, db, user

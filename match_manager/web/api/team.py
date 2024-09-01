@@ -58,7 +58,7 @@ async def create_new_team(data: model.NewTeamData, author: auth.User) -> model.T
 @validate_response(model.TeamResponse)
 async def update_team_data(team_id: int, data: model.UpdateTeamData, author: auth.User):
     """update an existing team"""
-    return await model.update_team_data(team_id, data)
+    return await model.update_team_data(team_id, data, author)
 
 
 @blue.route('/<int:team_id>/logo')

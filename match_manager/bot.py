@@ -42,6 +42,10 @@ class MatchManagerBot(discord.Bot):
         """
         return self._admin_guild.get_member(int(user_id)) or await self._admin_guild.fetch_member(int(user_id))
 
+    def get_admin_guild(self) -> discord.Guild:
+        """Access the admin guild object"""
+        return self._admin_guild
+
 
 _instance: MatchManagerBot | None = None
 
