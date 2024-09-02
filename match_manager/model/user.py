@@ -9,7 +9,7 @@ from match_manager import bot
 
 class DiscordMemberInfo(BaseModel):
     """basic info about any member on the discord"""
-    id: int    # discord user id
+    id: str    # discord user id
     name: str  # discord user name
     avatar_url: str   # url to the users avatar
     roles: list[str]  # names of roles the user has on the discord
@@ -18,7 +18,7 @@ class DiscordMemberInfo(BaseModel):
     def from_discord(member: discord.Member) -> Self:
         """convert a discord member to a DiscordMemberInfo model"""
         return DiscordMemberInfo(
-            id=member.id,
+            id=str(member.id),
             name=member.display_name,
             avatar_url=member.display_avatar.with_size(64).url,
             roles=[str(r) for r in member.roles if str(r) != "@everyone"]
@@ -33,7 +33,7 @@ async def search_user(search: str, max_results: int = 10) -> list[DiscordMemberI
 
 
 @validate_call
-async def get_user(user_id: int) -> DiscordMemberInfo | None:
+async def get_user(user_id: str) -> DiscordMemberInfo | None:
     """returns information for a selected user id"""
     member = await bot.get().get_admin_guild_member(user_id)
     return member and DiscordMemberInfo.from_discord(member)

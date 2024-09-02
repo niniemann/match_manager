@@ -33,6 +33,7 @@ class UpdateTeamData(BaseModel):
     tag: Optional[str] = Field(min_length=2, max_length=5, default=None)
     description: Optional[str] = Field(default=None)
     logo: Optional[File] = Field(default=None)
+    managers: Optional[list[int]] = Field(default=None)
 
 class TeamResponse(BaseModel):
     """information sent in return after creating/patching/getting a team"""
@@ -56,7 +57,7 @@ async def get_team(team_id: int) -> TeamResponse:
     response = TeamResponse(**model_to_dict(team))
     # since only a single team is queried, include extra information, i.e. the team managers
     response.managers = [
-        user.get_user(m.discord_user_id) for m in team.managers
+        await user.get_user(m.discord_user_id) for m in team.managers
     ]
     return response
 
@@ -98,6 +99,13 @@ async def update_team_data(team_id: int, update: UpdateTeamData, author: auth.Us
         t.name = t.name if update.name is None else update.name
         t.tag = t.tag if update.tag is None else update.tag
         t.description = t.description if update.description is None else update.description
+
+        if update.managers is not None:
+            # remove all team managers that are not in the new list
+            TeamManager.delete().where((TeamManager.team==t) & TeamManager.discord_user_id.not_in(update.managers)).execute()
+            # add all that are missing
+            for uid in update.managers:
+                TeamManager.get_or_create(discord_user_id=uid, team=t)
 
         t.save()
 

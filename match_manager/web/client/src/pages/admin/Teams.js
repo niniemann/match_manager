@@ -1,4 +1,4 @@
-import { useState, useEffect, useDebugValue } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   Button,
@@ -15,6 +15,7 @@ import {
   FileUpload,
   ColumnLayout,
   TokenGroup,
+  Select,
 } from "@cloudscape-design/components";
 
 import axios from "axios";
@@ -59,7 +60,19 @@ function TeamEditForm({ team_id, onSuccess, onCancel }) {
   const [tag, setTag] = useState("");
   const [description, setDescription] = useState("");
   const [newLogoFile, setNewLogoFile] = useState(undefined);
+
+  // managers is the list of rich objects, including names, avatars, ...
   const [managers, setManagers] = useState([]);
+  // but to compare if the set of managers changed, and to update them later on,
+  // compare the set of managers ids instead -- newManagerIds and managers have to be kept in sync!
+  const [oldManagerIds, setOldManagerIds] = useState(new Set());
+  const [newManagerIds, setNewManagerIds] = useState(new Set());
+
+  // users to be added as managers are searched -- depending on the server size this may take a sec,
+  // so set a loading state
+  const [userSearchStatus, setUserSearchStatus] = useState("pending");
+  const [userSearchString, setUserSearchString] = useState("");
+  const [userSearchResults, setUserSearchResults] = useState([]);
 
   const [submitError, setSubmitError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -72,7 +85,19 @@ function TeamEditForm({ team_id, onSuccess, onCancel }) {
       setName(data.name);
       setTag(data.tag);
       setDescription(data.description);
-      setManagers(data.managers);
+      setManagers(
+        data.managers.map((m) => {
+          return {
+            label: m.name,
+            description: `${m.id}`,
+            tags: m.roles,
+            iconUrl: m.avatar_url,
+            id: m.id,
+          };
+        })
+      );
+      setOldManagerIds(new Set(data.managers.map((m) => m.id)));
+      setNewManagerIds(new Set(data.managers.map((m) => m.id)));
     } catch (error) {
       setSubmitError(error.response?.data || error.message);
       throw error;
@@ -138,6 +163,11 @@ function TeamEditForm({ team_id, onSuccess, onCancel }) {
         changes.logo = newLogoFile;
       }
 
+      if (oldManagerIds.symmetricDifference(newManagerIds).size > 0) {
+        // there are differences in the match managers, send the whole list anew
+        changes.managers = [...newManagerIds];
+      }
+
       saveExistingTeam(changes);
     } else {
       // when creating a new team, just forward all data, even empty strings
@@ -157,7 +187,11 @@ function TeamEditForm({ team_id, onSuccess, onCancel }) {
   };
 
   const hasUnsavedChanges =
-    name !== oldTeamData?.name || tag !== oldTeamData?.tag || description !== oldTeamData?.description || newLogoFile;
+    name !== oldTeamData?.name ||
+    tag !== oldTeamData?.tag ||
+    description !== oldTeamData?.description ||
+    newLogoFile ||
+    oldManagerIds.symmetricDifference(newManagerIds).size > 0;
 
   useEffect(() => {
     if (!isNewTeam) {
@@ -197,7 +231,80 @@ function TeamEditForm({ team_id, onSuccess, onCancel }) {
           <FormField label="Description">
             <Textarea value={description} disabled={isLoading} onChange={(e) => setDescription(e.detail.value)} />
           </FormField>
-          <FormField label="Team Managers">{/* <TokenGroup TODO*/}</FormField>
+          <FormField label="Team Managers">
+            <SpaceBetween size="xs">
+              <Select
+                filteringType="manual"
+                filteringPlaceholder="find user"
+                statusType={userSearchStatus}
+                placeholder="Add a team manager"
+                loadingText="Searching user"
+                errorText="Error fetching results"
+                recoveryText="Retry"
+                finishedText={
+                  userSearchString ? `End of results for "${userSearchString}"` : "Please type a name to continue"
+                }
+                empty="No user found"
+                options={userSearchResults}
+                onChange={({
+                  detail: {
+                    selectedOption: { value },
+                  },
+                }) => {
+                  // update id set
+                  setNewManagerIds(new Set([...newManagerIds, value.id]));
+
+                  // update visuals
+                  setManagers([
+                    ...managers,
+                    {
+                      label: value.name,
+                      description: `${value.id}`,
+                      tags: value.roles,
+                      iconUrl: value.avatar_url,
+                      id: value.id,
+                    },
+                  ]);
+                }}
+                onLoadItems={({ detail: { filteringText } }) => {
+                  setUserSearchString(filteringText);
+                  if (filteringText.length > 1) {
+                    setUserSearchStatus("loading");
+                    axios
+                      .get(`${API_ENDPOINT}/user/search`, { params: { user: filteringText } })
+                      .then(({ data }) => {
+                        setUserSearchResults(
+                          data.map((item) => {
+                            return {
+                              label: item.name,
+                              value: item,
+                              iconUrl: item.avatar_url,
+                              tags: item.roles,
+                              description: `${item.id}`,
+                            };
+                          })
+                        );
+                        setUserSearchStatus("finished");
+                      })
+                      .catch(() => {
+                        alert("error loading data");
+                      });
+                  }
+                }}
+              />
+              <TokenGroup
+                onDismiss={({ detail: { itemIndex } }) => {
+                  // set visuals
+                  const managers_updated = [...managers.slice(0, itemIndex), ...managers.slice(itemIndex + 1)];
+                  setManagers(managers_updated);
+
+                  // set ids to store
+                  setNewManagerIds(new Set(managers_updated.map((m) => m.id)));
+                }}
+                items={managers}
+              />
+            </SpaceBetween>
+          </FormField>
           <FormField label="Logo">
             <ColumnLayout columns={2}>
               {!isNewTeam && (

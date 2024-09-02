@@ -19,5 +19,5 @@ class TeamManager(pw.Model):
     class Meta:
         database = db_proxy
 
-    discord_user_id = pw.BigIntegerField()
-    team = pw.ForeignKeyField(Team, on_delete='CASCADE', backref='managers')
+    discord_user_id = pw.CharField()
+    team = pw.ForeignKeyField(Team, on_delete='CASCADE', backref='managers', index=True)

@@ -6,9 +6,11 @@ import logging
 from pathlib import Path
 from http import HTTPStatus
 from typing import List
+from functools import wraps
 
 from quart import Blueprint, send_from_directory, request
 from quart_schema import validate_request, validate_response, DataSource
+from pydantic import validator
 
 from playhouse.shortcuts import model_to_dict
 
@@ -43,9 +45,26 @@ async def delete_team(team_id: int, author: auth.User):
     return "", HTTPStatus.NO_CONTENT
 
 
+class NewTeamData(model.NewTeamData):
+    """workaround: convert string to list for managers -- issue with multipart form data parsing"""
+    @validator('managers', pre=True, check_fields=False)
+    def parse_list(cls, value):
+        if isinstance(value, str):
+            return [int(x) for x in value.split(',')]
+        return value
+
+class UpdateTeamData(model.UpdateTeamData):
+    """workaround: convert string to list for managers -- issue with multipart form data parsing"""
+    @validator('managers', pre=True, check_fields=False)
+    def parse_list(cls, value):
+        if isinstance(value, str):
+            return [int(x) for x in value.split(',')]
+        return value
+
+
 @blue.route('/', methods=['POST'])
 @requires_login()
-@validate_request(model.NewTeamData, source=DataSource.FORM_MULTIPART)
+@validate_request(NewTeamData, source=DataSource.FORM_MULTIPART)
 @validate_response(model.TeamResponse, HTTPStatus.CREATED)
 async def create_new_team(data: model.NewTeamData, author: auth.User) -> model.TeamResponse:
     """create a new team"""
@@ -54,7 +73,7 @@ async def create_new_team(data: model.NewTeamData, author: auth.User) -> model.T
 
 @blue.route('/<int:team_id>', methods=['PATCH'])
 @requires_login()
-@validate_request(model.UpdateTeamData, source=DataSource.FORM_MULTIPART)
+@validate_request(UpdateTeamData, source=DataSource.FORM_MULTIPART)
 @validate_response(model.TeamResponse)
 async def update_team_data(team_id: int, data: model.UpdateTeamData, author: auth.User):
     """update an existing team"""

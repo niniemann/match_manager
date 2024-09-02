@@ -11,17 +11,17 @@ from .db.team import TeamManager
 
 class User(BaseModel):
     """A user-object: A name, id, and permissions"""
-    id: int    # discord user id
+    id: str    # discord user id
     name: str  # discord user name
     is_admin: bool  # whether full admin rights are granted
     is_manager_for_teams: list[int]   # which teams the user is allowed to manage
     avatar_url: Optional[str] = None  # url to the discord avatar
 
 
-EmptyUser = User(id=0, name="", is_admin=False, is_manager_for_teams=[])
+EmptyUser = User(id="", name="", is_admin=False, is_manager_for_teams=[])
 
 @validate_call
-async def get_user_info(user_id: int) -> User:
+async def get_user_info(user_id: str) -> User:
     """Collect information about the user with the given id"""
 
     is_admin = await bot.get().is_match_manager_admin(user_id)

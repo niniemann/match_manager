@@ -1,6 +1,7 @@
 """everything for the web application"""
 
 import os
+import logging
 from http import HTTPStatus
 
 from quart import Quart, url_for, render_template, send_file, jsonify
@@ -12,6 +13,8 @@ from .. import config
 from .api import login, team, user
 
 from match_manager.model import auth
+
+logger = logging.getLogger(__name__)
 
 # serve the react application, built with `npm run build` in `client/`, as static files
 app = Quart(__name__, static_url_path='/', static_folder='client/build')
