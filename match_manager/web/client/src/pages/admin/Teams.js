@@ -287,7 +287,7 @@ function TeamEditForm({ team_id, onSuccess, onCancel }) {
                         setUserSearchStatus("finished");
                       })
                       .catch(() => {
-                        alert("error loading data");
+                        setUserSearchStatus("error");
                       });
                   }
                 }}
