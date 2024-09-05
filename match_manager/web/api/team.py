@@ -12,8 +12,6 @@ from quart import Blueprint, send_from_directory, request
 from quart_schema import validate_request, validate_response, DataSource
 from pydantic import validator
 
-from playhouse.shortcuts import model_to_dict
-
 from match_manager.web.api.login import requires_login
 from match_manager.model import team as model
 from match_manager.model import auth

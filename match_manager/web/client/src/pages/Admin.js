@@ -3,6 +3,7 @@ import { Route, Routes, useNavigate } from "react-router-dom";
 import { AppLayout, SideNavigation } from "@cloudscape-design/components";
 
 import { TeamsTable } from "./admin/Teams.js";
+import { SeasonsTable } from "./admin/Seasons.js";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -22,12 +23,20 @@ export default function Admin() {
           }
         }}
         items={[
-          { type: "link", text: "All Teams", href: "all-teams" },
-          { type: "link", text: "Audit Log", href: "audit-log" },
+          {
+            type: "section-group",
+            title: "Admin",
+            items: [
+              { type: "link", text: "Teams", href: "all-teams" },
+              { type: "link", text: "Seasons", href: "seasons" },
+              { type: "link", text: "Audit Log", href: "audit-log" },
+            ],
+          },
         ]}
       />
       content=<Routes>
         <Route path="all-teams" element={<TeamsTable />} />
+        <Route path="seasons" element={<SeasonsTable />} />
         <Route path="audit-log" element={<></>} />
       </Routes>
     />
