@@ -6,7 +6,9 @@ import {
   Button,
   ButtonDropdown,
   Cards,
+  Flashbar,
   Form,
+  FormField,
   Header,
   Input,
   Modal,
@@ -14,7 +16,7 @@ import {
   Table,
 } from "@cloudscape-design/components";
 import { useParams } from "react-router-dom";
-import { CriticalConfirmationDialog } from "../../components/Dialogs";
+import { ApiCallError, CriticalConfirmationDialog } from "../../components/Dialogs";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
@@ -69,6 +71,7 @@ function GroupEdit({ group }) {
 function NewGroupModal({ targetSeasonId, onSuccess, onDismiss }) {
   const [newGroupName, setNewGroupName] = useState("");
   const [creationInProgress, setCreationInProgress] = useState(false);
+  const [currentError, setCurrentError] = useState(undefined);
 
   const createNewGroup = () => {
     if (creationInProgress) return;
@@ -84,7 +87,7 @@ function NewGroupModal({ targetSeasonId, onSuccess, onDismiss }) {
         { withCredentials: true }
       )
       .then(onSuccess)
-      .catch((e) => alert(e))
+      .catch((e) => setCurrentError(e.response?.data || e.message))
       .finally(() => setCreationInProgress(false));
   };
 
@@ -108,7 +111,12 @@ function NewGroupModal({ targetSeasonId, onSuccess, onDismiss }) {
         </Box>
       }
     >
-      <Input value={newGroupName} onChange={({ detail }) => setNewGroupName(detail.value)}></Input>
+      <SpaceBetween size="m">
+        {currentError && <ApiCallError error={currentError} />}
+        <FormField label="Name">
+          <Input value={newGroupName} onChange={({ detail }) => setNewGroupName(detail.value)}></Input>
+        </FormField>
+      </SpaceBetween>
     </Modal>
   );
 }
@@ -132,6 +140,23 @@ function DeleteGroupModal({ group, onConfirm, onDismiss }) {
   );
 }
 
+function RenameGroupModal({ group, onConfirm, onDismiss }) {
+  const [newName, setNewName] = useState("");
+
+  return (
+    <CriticalConfirmationDialog
+      visible={true}
+      header={`Rename ${group.name}?`}
+      onDismiss={onDismiss}
+      onConfirm={() => onConfirm(newName)}
+    >
+      <FormField label="New Name">
+        <Input value={newName} placeholder={group.name} onChange={({ detail }) => setNewName(detail.value)} />
+      </FormField>
+    </CriticalConfirmationDialog>
+  );
+}
+
 export function SeasonEdit() {
   const { seasonId } = useParams();
   const [groups, setGroups] = useState([]);
@@ -143,6 +168,12 @@ export function SeasonEdit() {
 
   // used as state for the single "Delete Group?" modal
   const [groupToDelete, setGroupToDelete] = useState(undefined);
+
+  // used as state for the single "Rename Group?" modal
+  const [groupToRename, setGroupToRename] = useState(undefined);
+
+  // display the latest error that occurred
+  const [currentError, setCurrentError] = useState(undefined);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -175,65 +206,99 @@ export function SeasonEdit() {
           group={groupToDelete}
           onDismiss={() => setGroupToDelete(undefined)}
           onConfirm={() => {
-            axios.delete(`${API_ENDPOINT}/seasons/groups/${groupToDelete.id}`, { withCredentials: true }).then(() => {
-              setGroupToDelete(undefined);
-              setReloadSeed(reloadSeed + 1);
-            }).catch(alert);
+            axios
+              .delete(`${API_ENDPOINT}/seasons/groups/${groupToDelete.id}`, { withCredentials: true })
+              .then(() => {
+                setCurrentError(undefined);
+                setReloadSeed(reloadSeed + 1);
+              })
+              .catch((error) => {
+                setCurrentError(error.response?.data || error.message);
+              })
+              .finally(() => setGroupToDelete(undefined));
           }}
         />
       )}
-      <Cards
-        header={
-          <Header
-            actions={
-              <Button
-                onClick={() => {
-                  setIsCreateGroupVisible(true);
-                }}
-                variant="primary"
-              >
-                Create Group
-              </Button>
-            }
-          >
-            Groups within Season "{seasonName}"
-          </Header>
-        }
-        cardDefinition={{
-          header: (item) => (
-            <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between" }}>
-              <span>{item.name}</span>
-              <ButtonDropdown
-                items={[
-                  {
-                    text: "Delete",
-                    id: "rm",
-                    disabled: false,
-                  },
-                  { text: "Rename", id: "mv", disabled: false },
-                ]}
-                onItemClick={({ detail: { id } }) => {
-                  if (id === "rm") {
-                    // remove group
-                    setGroupToDelete(item);
-                  } else if (id == "mv") {
-                    // TODO: rename group
-                  }
-                }}
-                variant="inline-icon"
-              />
-            </div>
-          ),
-          sections: [
-            {
-              id: "teams",
-              content: (item) => <GroupEdit group={item} /> /*TODO*/,
-            },
-          ],
-        }}
-        cardsPerRow={[{ cards: 1 }, { minWidth: 800, cards: 2 }]}
-        items={groups}
-      ></Cards>
+      {groupToRename !== undefined && (
+        <RenameGroupModal
+          group={groupToRename}
+          onDismiss={() => setGroupToRename(undefined)}
+          onConfirm={(newName) => {
+            axios
+              .patch(
+                `${API_ENDPOINT}/seasons/groups/${groupToRename.id}`,
+                {
+                  name: newName,
+                },
+                { withCredentials: true }
+              )
+              .then(() => {
+                setCurrentError(undefined);
+                setReloadSeed(reloadSeed + 1);
+              })
+              .catch((error) => setCurrentError(error.response?.data || error.message))
+              .finally(() => setGroupToRename(undefined));
+          }}
+        />
+      )}
+
+      <SpaceBetween size="m">
+        {currentError !== undefined && <ApiCallError error={currentError} />}
+
+        <Cards
+          header={
+            <Header
+              actions={
+                <Button
+                  onClick={() => {
+                    setIsCreateGroupVisible(true);
+                  }}
+                  variant="primary"
+                >
+                  Create Group
+                </Button>
+              }
+            >
+              Groups within Season "{seasonName}"
+            </Header>
+          }
+          cardDefinition={{
+            header: (item) => (
+              <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between" }}>
+                <span>{item.name}</span>
+                <ButtonDropdown
+                  items={[
+                    {
+                      text: "Delete",
+                      id: "rm",
+                      disabled: false,
+                    },
+                    { text: "Rename", id: "mv", disabled: false },
+                  ]}
+                  onItemClick={({ detail: { id } }) => {
+                    if (id === "rm") {
+                      // remove group
+                      setGroupToDelete(item);
+                    } else if (id == "mv") {
+                      // rename group
+                      setGroupToRename(item);
+                    }
+                  }}
+                  variant="inline-icon"
+                />
+              </div>
+            ),
+            sections: [
+              {
+                id: "teams",
+                content: (item) => <GroupEdit group={item} /> /*TODO*/,
+              },
+            ],
+          }}
+          cardsPerRow={[{ cards: 1 }, { minWidth: 800, cards: 2 }]}
+          items={groups}
+        />
+      </SpaceBetween>
     </>
   );
 }

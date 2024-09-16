@@ -116,6 +116,8 @@ async def update_match_group(group_id: int, group_data: UpdateMatchGroupData, au
             TeamInGroup.delete().where(group==group).execute()
             TeamInGroup.bulk_create([TeamInGroup(group=group, team_id=tid) for tid in group_data.teams])
 
+        group.save()
+
     return MatchGroupResponse(id=group.id, name=group.name, teams=[TeamResponse(**model_to_dict(t.team)) for t in group.teams])
 
 
