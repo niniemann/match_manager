@@ -4,6 +4,7 @@ import { AppLayout, SideNavigation } from "@cloudscape-design/components";
 
 import { TeamsTable } from "./admin/Teams.js";
 import { SeasonsTable } from "./admin/Seasons.js";
+import { SeasonEdit } from "./admin/SeasonEdit.js";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ export default function Admin() {
       content=<Routes>
         <Route path="all-teams" element={<TeamsTable />} />
         <Route path="seasons" element={<SeasonsTable />} />
+        <Route path="season/:seasonId" element={<SeasonEdit />} />
         <Route path="audit-log" element={<></>} />
       </Routes>
     />

@@ -4,6 +4,7 @@ import os
 import logging
 from http import HTTPStatus
 
+import peewee as pw
 from quart import Quart, url_for, render_template, send_file, jsonify
 from quart_cors import cors
 from quart_schema import QuartSchema, hide, RequestSchemaValidationError, ResponseSchemaValidationError
@@ -33,7 +34,7 @@ async def handle_request_validation_error(error: RequestSchemaValidationError):
 async def handle_response_validation_error(error: ResponseSchemaValidationError):
     val_err: ValidationError = error.validation_error
     return {
-        "title": f'{error.code}: ResponseError (Woops! Internal!)',
+        "title": f'500: ResponseError (Woops! Internal!)',
         "errors": val_err.errors(),
     }, HTTPStatus.INTERNAL_SERVER_ERROR
 
@@ -59,6 +60,16 @@ async def handle_permission_denied(error: auth.PermissionDenied):
         ]
     }, HTTPStatus.UNAUTHORIZED
 
+@app.errorhandler(pw.IntegrityError)
+async def handle_pw_integrity_error(error: pw.IntegrityError):
+    return {
+        "title": "500: Database Integrity Error",
+        "errors": [
+            {
+                "msg": str(error)
+            }
+        ]
+    }, HTTPStatus.INTERNAL_SERVER_ERROR
 
 # configure secrets for oauth2 -- login with discord
 app.secret_key = config.webserver.secret

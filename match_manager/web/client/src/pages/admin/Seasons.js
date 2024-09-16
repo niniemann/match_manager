@@ -8,8 +8,10 @@ import {
   Table,
   SpaceBetween,
   Input,
+  Link as CloudscapeLink,
   Flashbar,
 } from "@cloudscape-design/components";
+import { Link as RouterLink } from "react-router-dom";
 
 import axios from "axios";
 import { ApiCallError } from "../../components/Dialogs";
@@ -125,7 +127,11 @@ export function SeasonsTable() {
             {
               id: "name",
               header: "Name",
-              cell: (item) => item.name,
+              cell: (item) => (
+                <RouterLink to={`../season/${item.id}`}>
+                  <CloudscapeLink href={`season/${item.id}`}>{item.name}</CloudscapeLink>
+                </RouterLink>
+              ),
             },
             {
               id: "number_groups",
