@@ -113,7 +113,7 @@ async def update_match_group(group_id: int, group_data: UpdateMatchGroupData, au
 
         if group_data.teams is not None:
             # simplify: remove all, then add all
-            TeamInGroup.delete().where(group==group).execute()
+            TeamInGroup.delete().where(TeamInGroup.group==group).execute()
             TeamInGroup.bulk_create([TeamInGroup(group=group, team_id=tid) for tid in group_data.teams])
 
         group.save()

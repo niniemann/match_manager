@@ -6,12 +6,11 @@ import {
   Button,
   ButtonDropdown,
   Cards,
-  Flashbar,
-  Form,
   FormField,
   Header,
   Input,
   Modal,
+  Select,
   SpaceBetween,
   Table,
 } from "@cloudscape-design/components";
@@ -20,51 +19,99 @@ import { ApiCallError, CriticalConfirmationDialog } from "../../components/Dialo
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
-function GroupEdit({ group }) {
+function GroupEdit({ group, allTeams }) {
   const [unusedTeams, setUnusedTeams] = useState([]);
   const [teamsInGroup, setTeamsInGroup] = useState(group.teams);
 
   useEffect(() => {
-    /* TODO */
-  }, [setUnusedTeams, setTeamsInGroup]);
+    // update the selection of teams that are not within this group yet
+    setUnusedTeams(allTeams.filter((team) => !teamsInGroup.some((used) => used.id === team.id)));
+  }, [allTeams, teamsInGroup]);
 
   return (
-    <Table
-      columnDefinitions={[
-        {
-          id: "team_id",
-          header: "Team Id",
-          cell: (item) => item.id,
-          isRowHeader: true,
-        },
-        {
-          id: "logo",
-          header: "Logo",
-          cell: (item) => (
-            <div style={{ width: "50px", height: "50px", display: "flex" }}>
-              <img
-                style={{ width: "100%", height: "auto", objectFit: "contain" }}
-                src={`${API_ENDPOINT}/teams/${item.id}/logo`}
+    <>
+      <Table
+        columnDefinitions={[
+          {
+            id: "team_id",
+            header: "Team Id",
+            cell: (item) => item.id,
+            isRowHeader: true,
+          },
+          {
+            id: "logo",
+            header: "Logo",
+            cell: (item) => (
+              <div style={{ width: "50px", height: "50px", display: "flex" }}>
+                <img
+                  style={{ width: "100%", height: "auto", objectFit: "contain" }}
+                  src={`${API_ENDPOINT}/teams/${item.id}/logo`}
+                />
+              </div>
+            ),
+          },
+          {
+            id: "name",
+            header: "Name",
+            cell: (item) => item.name,
+          },
+          {
+            id: "actions",
+            header: "Actions",
+            cell: (item) => (
+              <Button
+                variant="icon"
+                iconName="remove"
+                onClick={() => {
+                  // remove the team from the group -- this is not a critical action as it can be reverted,
+                  // so no confirmation is asked (for now)
+                  const newTeamsList = teamsInGroup.filter((team) => team.id !== item.id);
+                  axios
+                    .patch(
+                      `${API_ENDPOINT}/seasons/groups/${group.id}`,
+                      {
+                        teams: newTeamsList.map((team) => team.id),
+                      },
+                      { withCredentials: true }
+                    )
+                    .then(({ data }) => setTeamsInGroup(data.teams))
+                    .catch(alert); // TODO: error handling
+                }}
               />
-            </div>
-          ),
-        },
-        {
-          id: "name",
-          header: "Name",
-          cell: (item) => item.name,
-        },
-        {
-          id: "actions",
-          header: "Actions",
-          cell: (item) => <Button variant="icon" iconName="remove"></Button>,
-        },
-      ]}
-      items={group.teams}
-      trackBy="id"
-      empty={<p>Nothing to see here.</p>}
-      variant="embedded"
-    ></Table>
+            ),
+          },
+        ]}
+        items={teamsInGroup}
+        trackBy="id"
+        empty={<p>Nothing to see here.</p>}
+        variant="embedded"
+      />
+      <Select
+        options={unusedTeams.map((team) => {
+          return {
+            label: team.tag,
+            description: team.name,
+            iconUrl: `${API_ENDPOINT}/teams/${team.id}/logo`,
+            team: team,
+          };
+        })}
+        filteringType="auto"
+        placeholder="Add a team"
+        onChange={({ detail: { selectedOption } }) => {
+          const newTeamsList = [...teamsInGroup, selectedOption.team];
+          axios
+            .patch(
+              `${API_ENDPOINT}/seasons/groups/${group.id}`,
+              {
+                teams: newTeamsList.map((team) => team.id),
+              },
+              { withCredentials: true }
+            )
+            .then(({ data }) => setTeamsInGroup(data.teams))
+            .catch(alert); // TODO: error handling
+        }}
+      />
+    </>
   );
 }
 
@@ -163,6 +210,9 @@ export function SeasonEdit() {
   const [seasonName, setSeasonName] = useState("");
   const [isCreateGroupVisible, setIsCreateGroupVisible] = useState(false);
 
+  // used for drop-down selection to add new teams to a group
+  const [allTeams, setAllTeams] = useState([]);
+
   // to force a reload after model data change, e.g after creating or deleting a group
   const [reloadSeed, setReloadSeed] = useState(0);
 
@@ -183,7 +233,14 @@ export function SeasonEdit() {
           setGroups(data.match_groups);
           setSeasonName(data.name);
         })
-        .catch((e) => alert(JSON.stringify(e)));
+        .catch((e) => setCurrentError(e.response?.data || e.message));
+
+      axios
+        .get(`${API_ENDPOINT}/teams`)
+        .then(({ data }) => {
+          setAllTeams(data);
+        })
+        .catch((e) => setCurrentError(e.response?.data || e.message));
     };
 
     fetchData();
@@ -279,7 +336,7 @@ export function SeasonEdit() {
                     if (id === "rm") {
                       // remove group
                       setGroupToDelete(item);
-                    } else if (id == "mv") {
+                    } else if (id === "mv") {
                       // rename group
                       setGroupToRename(item);
                     }
@@ -291,12 +348,13 @@ export function SeasonEdit() {
             sections: [
               {
                 id: "teams",
-                content: (item) => <GroupEdit group={item} /> /*TODO*/,
+                content: (item) => <GroupEdit group={item} allTeams={allTeams} />,
               },
             ],
           }}
           cardsPerRow={[{ cards: 1 }, { minWidth: 800, cards: 2 }]}
           items={groups}
+          trackBy="id"
         />
       </SpaceBetween>
     </>
