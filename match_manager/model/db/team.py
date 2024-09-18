@@ -14,6 +14,7 @@ class Team(pw.Model):
     name = pw.CharField()
     tag = pw.CharField()
     description = pw.TextField(default="")
+    logo_filename = pw.CharField(null=True)
 
 class TeamManager(pw.Model):
     class Meta:

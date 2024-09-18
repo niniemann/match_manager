@@ -78,21 +78,9 @@ async def update_team_data(team_id: int, data: model.UpdateTeamData, author: aut
     return await model.update_team_data(team_id, data, author)
 
 
-@blue.route('/<int:team_id>/logo')
-async def get_team_logo(team_id: int):
-    """serve the logo belonging to the selected team"""
-    filename = f'{team_id}.png'
-    folder = Path(config.webserver.upload_folder) / "team_logos"
+_logo_folder = Path(config.webserver.upload_folder) / "team_logos"
 
-    # compute an etag header, to only re-fetch a file when it changed
-    stat = os.stat(folder / filename)
-    etag = hashlib.md5(f"{stat.st_mtime}-{stat.st_size}".encode()).hexdigest()
-
-    if_none_match = request.headers.get('If-None-Match')
-    if if_none_match == etag:
-        return '', HTTPStatus.NOT_MODIFIED
-
-    response = await send_from_directory(folder, filename)
-    response.headers['ETag'] = etag
-    response.headers['cache-control'] = 'no-cache'
-    return response
+@blue.route('/logo/<path:filename>')
+async def get_team_logo(filename: str):
+    """serve files from the team-logo folder"""
+    return await send_from_directory(_logo_folder, filename)

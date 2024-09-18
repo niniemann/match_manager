@@ -45,7 +45,7 @@ function GroupEdit({ group, allTeams }) {
               <div style={{ width: "50px", height: "50px", display: "flex" }}>
                 <img
                   style={{ width: "100%", height: "auto", objectFit: "contain" }}
-                  src={`${API_ENDPOINT}/teams/${item.id}/logo`}
+                  src={`${API_ENDPOINT}/teams/logo/${item.logo_filename}`}
                 />
               </div>
             ),
@@ -91,7 +91,7 @@ function GroupEdit({ group, allTeams }) {
           return {
             label: team.tag,
             description: team.name,
-            iconUrl: `${API_ENDPOINT}/teams/${team.id}/logo`,
+            iconUrl: `${API_ENDPOINT}/teams/logo/${team.logo_filename}`,
             team: team,
           };
         })}

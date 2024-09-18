@@ -307,9 +307,9 @@ function TeamEditForm({ team_id, onSuccess, onCancel }) {
           </FormField>
           <FormField label="Logo">
             <ColumnLayout columns={2}>
-              {!isNewTeam && (
+              {oldTeamData.logo_filename && (
                 <ImageContainer>
-                  <StyledImage src={isNewTeam ? "" : `${API_ENDPOINT}/teams/${team_id}/logo`} />
+                  <StyledImage src={`${API_ENDPOINT}/teams/logo/${oldTeamData.logo_filename}`} />
                 </ImageContainer>
               )}
               <FileUpload
@@ -450,11 +450,11 @@ export function TeamsTable() {
             {
               id: "logo",
               header: "Logo",
-              cell: (item) => (
+              cell: (item) => (item.logo_filename &&
                 <div style={{ width: "50px", height: "50px", display: "flex" }}>
                   <img
                     style={{ width: "100%", height: "auto", objectFit: "contain" }}
-                    src={`${API_ENDPOINT}/teams/${item.id}/logo`}
+                    src={`${API_ENDPOINT}/teams/logo/${item.logo_filename}`}
                   />
                 </div>
               ),

@@ -1,6 +1,7 @@
 """representation of data revolving around teams"""
 # pylint: disable=missing-class-docstring,too-few-public-methods
 
+import uuid
 import peewee as pw
 from playhouse.shortcuts import model_to_dict
 from pydantic import BaseModel, validate_call, Field
@@ -40,6 +41,7 @@ class TeamResponse(BaseModel):
     id: int
     name: str
     tag: str
+    logo_filename: Optional[str] = Field(default=None)
     description: str = Field(default="")
     # managers may be only included in single-team query results
     managers: Optional[list[user.DiscordMemberInfo]] = Field(default=None)
@@ -78,13 +80,17 @@ async def create_new_team(team_data: NewTeamData, author: auth.User) -> TeamResp
             tag=team_data.tag,
             description=team_data.description
         )
-        t.save()
 
         # if provided, store the file
         if team_data.logo:
+            # add a unique prefix to force browsers to load new files...
+            t.logo_filename = uuid.uuid4().hex + '_' + team_data.logo.filename
+
             storage_path = Path(config.webserver.upload_folder) / "team_logos"
             storage_path.mkdir(parents=True, exist_ok=True)
-            await team_data.logo.save(storage_path / f'{t.id}.png')
+            await team_data.logo.save(storage_path / t.logo_filename)
+
+        t.save()
 
     return TeamResponse(**model_to_dict(t))
 
@@ -110,9 +116,23 @@ async def update_team_data(team_id: int, update: UpdateTeamData, author: auth.Us
         t.save()
 
         if update.logo:
+            # remember the old logo name
+            old_logo = t.logo_filename
+
+            # save the new logo
+            t.logo_filename = uuid.uuid4().hex + '_' + update.logo.filename
+
             storage_path = Path(config.webserver.upload_folder) / "team_logos"
             storage_path.mkdir(parents=True, exist_ok=True)
-            await update.logo.save(storage_path / f'{t.id}.png')
+            await update.logo.save(storage_path / t.logo_filename)
+
+            # save the team and clean up
+            t.save()
+            if old_logo:
+                try:
+                    (Path(config.webserver.upload_folder) / "team_logos" / old_logo).unlink()
+                except:
+                    pass
 
     return TeamResponse(**model_to_dict(t))
 
@@ -121,4 +141,12 @@ async def update_team_data(team_id: int, update: UpdateTeamData, author: auth.Us
 @auth.requires_admin()
 async def delete_team(team_id: int, author: auth.User):
     """delete a team by its id"""
-    Team.delete_by_id(team_id)
+    with db.proxy.atomic() as txn:
+        t = Team.get_by_id(team_id)
+        logo = (Path(config.webserver.upload_folder) / "team_logos" / t.logo_filename)
+        t.delete_instance()
+
+        try:
+            logo.unlink()
+        except:
+            pass # just ignore errors, nothing we can do if this fails
