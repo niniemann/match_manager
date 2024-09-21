@@ -8,10 +8,10 @@ import {
   Table,
   SpaceBetween,
   Input,
-  Link as CloudscapeLink,
+  Link,
   Flashbar,
 } from "@cloudscape-design/components";
-import { Link as RouterLink } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import axios from "axios";
 import { ApiCallError } from "../../components/Dialogs";
@@ -69,6 +69,8 @@ export function SeasonsTable() {
   const triggerReload = () => setReloadSeed(reloadSeed + 1);
 
   const [notificationItems, setNotificationItems] = useState([]);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetch_seasons = () => {
@@ -128,9 +130,7 @@ export function SeasonsTable() {
               id: "name",
               header: "Name",
               cell: (item) => (
-                <RouterLink to={`../season/${item.id}`}>
-                  <CloudscapeLink href={`season/${item.id}`}>{item.name}</CloudscapeLink>
-                </RouterLink>
+                <Link onClick={() => navigate(`../season/${item.id}`, { relative: "path" })}>{item.name}</Link>
               ),
             },
             {

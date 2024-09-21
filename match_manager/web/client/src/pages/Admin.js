@@ -28,9 +28,9 @@ export default function Admin() {
             type: "section-group",
             title: "Admin",
             items: [
-              { type: "link", text: "Teams", href: "all-teams" },
-              { type: "link", text: "Seasons", href: "seasons" },
-              { type: "link", text: "Audit Log", href: "audit-log" },
+              { type: "link", text: "Teams", href: "/admin/all-teams" },
+              { type: "link", text: "Seasons", href: "/admin/seasons" },
+              { type: "link", text: "Audit Log", href: "/admin/audit-log" },
             ],
           },
         ]}
