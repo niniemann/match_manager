@@ -28,8 +28,10 @@ class DiscordMemberInfo(BaseModel):
 @validate_call
 async def search_user(search: str, max_results: int = 10) -> list[DiscordMemberInfo]:
     """searches for discord members, and returns a list of results"""
+    search = search.lower()
     guild = bot.get().get_admin_guild()
-    return [DiscordMemberInfo.from_discord(m) for m in await guild.search_members(search, limit=max_results)]
+    members = filter(lambda m: search in m.display_name.lower(), guild.members)
+    return list(islice(map(DiscordMemberInfo.from_discord, members), max_results))
 
 
 @validate_call
