@@ -14,7 +14,7 @@ class Team(pw.Model):
     name = pw.CharField()
     tag = pw.CharField()
     description = pw.TextField(default="")
-    logo_filename = pw.CharField(null=True)
+    logo_filename: str | None = pw.CharField(null=True) # type: ignore
 
 class TeamManager(pw.Model):
     class Meta:

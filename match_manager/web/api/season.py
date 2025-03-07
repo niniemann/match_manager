@@ -14,12 +14,12 @@ blue = Blueprint('seasons', __name__, url_prefix='/api/seasons')
 
 @blue.route('/', methods=['GET'])
 @validate_response(List[model.SeasonOverview])
-async def list_seasons():
+async def list_seasons() -> List[model.SeasonOverview]:
     """lists all seasons"""
     return await model.list_seasons()
 
 
-@blue.route('/', methods=['POST'])
+@blue.route('/', methods=['POST']) # type: ignore
 @requires_login()
 @validate_request(model.NewSeasonData)
 @validate_response(model.SeasonResponse)
@@ -28,14 +28,14 @@ async def create_season(data: model.NewSeasonData, author: auth.User) -> model.S
     return await model.create_season(data, author)
 
 
-@blue.route('/<int:season_id>', methods=['GET'])
+@blue.route('/<int:season_id>', methods=['GET']) # type: ignore
 @validate_response(model.SeasonResponse)
-async def get_season(season_id: int):
+async def get_season(season_id: int) -> model.SeasonResponse:
     """get a single season"""
     return await model.get_season(season_id)
 
 
-@blue.route('/groups', methods=['POST'])
+@blue.route('/groups', methods=['POST']) # type: ignore
 @requires_login()
 @validate_request(model.NewMatchGroupData)
 @validate_response(model.MatchGroupResponse)
@@ -44,7 +44,7 @@ async def create_group(data: model.NewMatchGroupData, author: auth.User) -> mode
     return await model.create_match_group(data, author)
 
 
-@blue.route('/groups/<int:group_id>', methods=['PATCH'])
+@blue.route('/groups/<int:group_id>', methods=['PATCH']) # type: ignore
 @requires_login()
 @validate_request(model.UpdateMatchGroupData)
 @validate_response(model.MatchGroupResponse)

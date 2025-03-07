@@ -1,11 +1,11 @@
 from collections.abc import Callable
-from typing import Type, TypeVar
+from typing import Generic, Type, TypeVar
 import inspect
 
 
 T = TypeVar('T')
 
-class ArgExtractor:
+class ArgExtractor(Generic[T]):
     def __init__(self, function: Callable, arg_name: str, arg_type: Type[T]):
         """
         Creates an extractor object, which can be used to access the function parameter as specified

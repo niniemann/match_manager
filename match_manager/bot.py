@@ -21,8 +21,15 @@ class MatchManagerBot(discord.Bot):
     async def on_ready(self):
         """called after bot startup"""
         logger.info('discord bot connected')
-        self._admin_guild = self.get_guild(config.discord.admin_guild_id)
-        self._admin_role = self._admin_guild.get_role(config.discord.admin_role_id)
+
+        admin_guild = self.get_guild(config.discord.admin_guild_id)
+        assert admin_guild
+
+        admin_role = admin_guild.get_role(config.discord.admin_role_id)
+        assert admin_role
+
+        self._admin_guild = admin_guild
+        self._admin_role = admin_role
 
     async def is_match_manager_admin(self, user_id: int | str) -> bool:
         """
@@ -34,7 +41,7 @@ class MatchManagerBot(discord.Bot):
         member = await self.get_admin_guild_member(user_id)
         is_admin = self._admin_role and member and self._admin_role in member.roles
         logger.debug((user_id, member and member.name, 'is admin?', is_admin))
-        return is_admin
+        return is_admin == True
 
     async def get_admin_guild_member(self, user_id: int | str) -> discord.Member:
         """

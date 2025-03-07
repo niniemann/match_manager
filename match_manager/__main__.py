@@ -31,7 +31,7 @@ def connect_database():
     model.db.proxy.initialize(database)
 
     database.connect()
-    database.evolve()
+    database.evolve() # type: ignore
 
 
 def main():

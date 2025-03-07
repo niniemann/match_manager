@@ -28,7 +28,7 @@ async def list_teams():
     return await model.get_teams()
 
 
-@blue.route('/<int:team_id>', methods=['GET'])
+@blue.route('/<int:team_id>', methods=['GET']) # type: ignore
 @validate_response(model.TeamResponse)
 async def show_team(team_id: int):
     """returns info of a single team"""
@@ -60,7 +60,7 @@ class UpdateTeamData(model.UpdateTeamData):
         return value
 
 
-@blue.route('/', methods=['POST'])
+@blue.route('/', methods=['POST']) # type: ignore
 @requires_login()
 @validate_request(NewTeamData, source=DataSource.FORM_MULTIPART)
 @validate_response(model.TeamResponse, HTTPStatus.CREATED)
@@ -69,7 +69,7 @@ async def create_new_team(data: model.NewTeamData, author: auth.User) -> model.T
     return await model.create_new_team(data, author)
 
 
-@blue.route('/<int:team_id>', methods=['PATCH'])
+@blue.route('/<int:team_id>', methods=['PATCH']) # type: ignore
 @requires_login()
 @validate_request(UpdateTeamData, source=DataSource.FORM_MULTIPART)
 @validate_response(model.TeamResponse)

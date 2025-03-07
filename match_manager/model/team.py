@@ -58,8 +58,9 @@ async def get_team(team_id: int) -> TeamResponse:
     team = Team.get_by_id(team_id)
     response = TeamResponse(**model_to_dict(team))
     # since only a single team is queried, include extra information, i.e. the team managers
+
     response.managers = [
-        await user.get_user(m.discord_user_id) for m in team.managers
+        u for m in team.managers if (u := await user.get_user(m.discord_user_id)) is not None
     ]
     return response
 
@@ -84,7 +85,7 @@ async def create_new_team(team_data: NewTeamData, author: auth.User) -> TeamResp
         # if provided, store the file
         if team_data.logo:
             # add a unique prefix to force browsers to load new files...
-            t.logo_filename = uuid.uuid4().hex + '_' + team_data.logo.filename
+            t.logo_filename = uuid.uuid4().hex + '_' + (team_data.logo.filename or '')
 
             storage_path = Path(config.webserver.upload_folder) / "team_logos"
             storage_path.mkdir(parents=True, exist_ok=True)
@@ -108,7 +109,11 @@ async def update_team_data(team_id: int, update: UpdateTeamData, author: auth.Us
 
         if update.managers is not None:
             # remove all team managers that are not in the new list
-            TeamManager.delete().where((TeamManager.team==t) & TeamManager.discord_user_id.not_in(update.managers)).execute()
+            TeamManager.delete().where(
+                (TeamManager.team==t) &
+                TeamManager.discord_user_id.not_in(update.managers) # type: ignore
+            ).execute()
+
             # add all that are missing
             for uid in update.managers:
                 TeamManager.get_or_create(discord_user_id=uid, team=t)
@@ -120,7 +125,7 @@ async def update_team_data(team_id: int, update: UpdateTeamData, author: auth.Us
             old_logo = t.logo_filename
 
             # save the new logo
-            t.logo_filename = uuid.uuid4().hex + '_' + update.logo.filename
+            t.logo_filename = uuid.uuid4().hex + '_' + (update.logo.filename or '')
 
             storage_path = Path(config.webserver.upload_folder) / "team_logos"
             storage_path.mkdir(parents=True, exist_ok=True)

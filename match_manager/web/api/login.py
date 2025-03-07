@@ -59,7 +59,7 @@ def requires_login(*, redirect_on_failure: bool = False, user_arg='author'):
 async def login():
     """redirect to discord for login"""
     async with OAuth2Session(config.discord.client_id, scope=['identify']) as discord:
-        auth_url, state = discord.authorization_url(AUTHORIZATION_BASE_URL)
+        auth_url, state = discord.authorization_url(AUTHORIZATION_BASE_URL) # type: ignore
 
     logger.debug('redirecting to discord for login')
     logger.debug('original referrer: %s', request.referrer)
@@ -78,7 +78,7 @@ async def callback():
 
         try:
             # fetch the token
-            token = await discord.fetch_token(
+            token = await discord.fetch_token( # type: ignore
                 FETCH_TOKEN_URL,
                 client_secret=config.discord.client_secret,
                 authorization_response=request.url
@@ -124,7 +124,7 @@ async def logout():
     return redirect('/')
 
 
-@blue.route('/api/current-user')
+@blue.route('/api/current-user') # type: ignore
 @validate_response(auth.User)
 async def current_user_permissions() -> auth.User:
     """returns permission information for the currently logged in user"""
