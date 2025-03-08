@@ -48,7 +48,10 @@ class NewTeamData(model.NewTeamData):
     @validator('managers', pre=True, check_fields=False)
     def parse_list(cls, value):
         if isinstance(value, str):
-            return [int(x) for x in value.split(',')]
+            if value:
+                return [int(x) for x in value.split(',')]
+            else:
+                return list[int]()
         return value
 
 class UpdateTeamData(model.UpdateTeamData):
@@ -56,7 +59,10 @@ class UpdateTeamData(model.UpdateTeamData):
     @validator('managers', pre=True, check_fields=False)
     def parse_list(cls, value):
         if isinstance(value, str):
-            return [int(x) for x in value.split(',')]
+            if value:
+                return [int(x) for x in value.split(',')]
+            else:
+                return list[int]()
         return value
 
 
