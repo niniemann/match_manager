@@ -1,5 +1,9 @@
+from datetime import datetime, timezone, tzinfo
 from typing import Literal
 from functools import wraps
+
+from playhouse.shortcuts import model_to_dict
+from pydantic import BaseModel, validate_call
 
 import string
 import logging
@@ -69,7 +73,7 @@ def log_call(
                 if do_log:
                     create_audit_entry(
                         author=get_user(*args, **kwargs),
-                        event_type=event_type or f"{f.__module__}.{f.__name__}",
+                        event_type=event_type or f"{'.'.join(f.__module__.split('.')[1:])}.{f.__name__}",
                         event_description=description.format(**values)
                     )
 
@@ -85,3 +89,48 @@ def log_call(
 #     print('foooo!', bar, baz)
 #     if baz != 42:
 #         raise Exception("wooops!")
+
+
+"""
+pydantic models for validation
+"""
+
+class AuditEventData(BaseModel):
+    """Representation of an audit event entry, including extra data for visualization."""
+    timestamp: datetime
+    author: auth.User
+    event_type: str
+    event_description: str
+
+
+"""
+model operations
+"""
+
+@validate_call
+async def fetch_log(before: datetime | None = None, num_entries: int = 10) -> list[AuditEventData]:
+    """Returns the most recent audit events older than the given timestamp."""
+    query = AuditEvent.select().order_by(AuditEvent.timestamp.desc())
+    if before is not None:
+        query = query.where(AuditEvent.timestamp < before) # type: ignore
+    query = query.limit(num_entries)
+
+    results: list[AuditEventData] = []
+    for event in query:
+        event: AuditEvent
+
+        user = await auth.get_user_info(event.author) # type: ignore
+        results.append(
+            AuditEventData(
+                # note: the peewee datetime objects are not timezone aware.
+                # the timestamps are in UTC, but the generated string representation does not contain the +00UTC
+                # mark, hence client side libraries (react, js!) assume they are in local time!
+                # --> explicitly set the tzinfo to utc.
+                timestamp=event.timestamp.replace(tzinfo=timezone.utc), # type: ignore
+                author=user,
+                event_type=event.event_type, # type: ignore
+                event_description=event.event_description # type: ignore
+            )
+        )
+
+    return results
