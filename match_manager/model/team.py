@@ -151,10 +151,11 @@ async def delete_team(team_id: int, author: auth.User):
     """delete a team by its id"""
     with db.proxy.atomic() as txn:
         t = Team.get_by_id(team_id)
-        logo = (Path(config.webserver.upload_folder) / "team_logos" / t.logo_filename)
-        t.delete_instance()
+        if t.logo_filename:
+            logo = (Path(config.webserver.upload_folder) / "team_logos" / t.logo_filename)
+            try:
+                logo.unlink()
+            except:
+                pass # just ignore errors, nothing we can do if this fails
 
-        try:
-            logo.unlink()
-        except:
-            pass # just ignore errors, nothing we can do if this fails
+        t.delete_instance()
