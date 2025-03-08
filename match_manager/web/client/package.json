@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@cloudscape-design/chat-components": "^1.0.28",
     "@cloudscape-design/components": "^3.0.717",
     "@cloudscape-design/global-styles": "^1.0.32",
     "@headlessui/react": "^2.1.2",
