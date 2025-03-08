@@ -6,7 +6,7 @@ import inspect
 T = TypeVar('T')
 
 class ArgExtractor(Generic[T]):
-    def __init__(self, function: Callable, arg_name: str, arg_type: Type[T]):
+    def __init__(self, function: Callable, arg_name: str, arg_type: Type[T] | None):
         """
         Creates an extractor object, which can be used to access the function parameter as specified
         by its name and type from given (*args, **kwargs) in a decorator.
@@ -14,13 +14,13 @@ class ArgExtractor(Generic[T]):
         sig = inspect.signature(function)
 
         for index, param in enumerate(sig.parameters.values()):
-            if param.name == arg_name and param.annotation == arg_type:
+            if param.name == arg_name and (param.annotation == arg_type or (arg_type is None)):
                 self._param = param
                 self._index = index
                 break
         else:
             raise ValueError(
-                f'No argument "{arg_name}: {arg_type}" in signature of function "{function.__name__}"'
+                f'No argument "{arg_name}: {arg_type or ""}" in signature of function "{function.__name__}"'
             )
 
     def __call__(self, *args, **kwargs) -> T:

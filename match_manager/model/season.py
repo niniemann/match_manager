@@ -8,7 +8,7 @@ from typing import Optional
 from .db.season import Season, MatchGroup, TeamInGroup
 from .db.team import Team
 from .team import TeamResponse
-from . import auth, db
+from . import auth, db, audit
 
 """
 pydantic models for validation
@@ -80,6 +80,7 @@ async def get_season(season_id: int) -> SeasonResponse:
 
 @validate_call
 @auth.requires_admin()
+@audit.log_call(description='{season_data}')
 async def create_season(season_data: NewSeasonData, author: auth.User) -> SeasonResponse:
     """create a new season"""
     with db.proxy.atomic() as txn:
@@ -91,6 +92,7 @@ async def create_season(season_data: NewSeasonData, author: auth.User) -> Season
 
 @validate_call
 @auth.requires_admin()
+@audit.log_call(description='{group_data}')
 async def create_match_group(group_data: NewMatchGroupData, author: auth.User) -> MatchGroupResponse:
     """create a new match group"""
     with db.proxy.atomic() as txn:
@@ -103,6 +105,7 @@ async def create_match_group(group_data: NewMatchGroupData, author: auth.User) -
 
 @validate_call
 @auth.requires_admin()
+@audit.log_call(description='{group_id}: {group_data}')
 async def update_match_group(group_id: int, group_data: UpdateMatchGroupData, author: auth.User) -> MatchGroupResponse:
     """update an existing match group"""
     with db.proxy.atomic() as txn:
@@ -123,6 +126,7 @@ async def update_match_group(group_id: int, group_data: UpdateMatchGroupData, au
 
 @validate_call
 @auth.requires_admin()
+@audit.log_call(description='{group_id}')
 async def delete_match_group(group_id: int, author: auth.User) -> None:
     """delete an existing match group"""
     MatchGroup.delete_by_id(group_id)

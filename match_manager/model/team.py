@@ -11,7 +11,7 @@ from pathlib import Path
 
 from match_manager import config
 from .db.team import Team, TeamManager
-from . import auth, db, user
+from . import auth, db, user, audit
 
 
 """
@@ -72,6 +72,7 @@ async def get_teams() -> list[TeamResponse]:
 
 @validate_call
 @auth.requires_admin()
+@audit.log_call(description='{team_data}')
 async def create_new_team(team_data: NewTeamData, author: auth.User) -> TeamResponse:
     """create a new team"""
     with db.proxy.atomic() as txn:
@@ -98,6 +99,7 @@ async def create_new_team(team_data: NewTeamData, author: auth.User) -> TeamResp
 
 @validate_call
 @auth.requires_admin()  # TODO: Allow match manager to edit _some_ of the values
+@audit.log_call(description='{team_id}: {update}')
 async def update_team_data(team_id: int, update: UpdateTeamData, author: auth.User) -> TeamResponse:
     """patch an existing team"""
     with db.proxy.atomic() as txn:
@@ -144,6 +146,7 @@ async def update_team_data(team_id: int, update: UpdateTeamData, author: auth.Us
 
 @validate_call
 @auth.requires_admin()
+@audit.log_call(description='{team_id}')
 async def delete_team(team_id: int, author: auth.User):
     """delete a team by its id"""
     with db.proxy.atomic() as txn:
