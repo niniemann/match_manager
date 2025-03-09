@@ -7,6 +7,7 @@ import { SeasonsTable } from "./admin/Seasons.js";
 import { SeasonEdit } from "./admin/SeasonEdit.js";
 import { AuditLogTable } from "./admin/Audit.js";
 import axios from "axios";
+import { MapTable } from "./admin/Maps.js";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
@@ -42,6 +43,9 @@ export default function Admin() {
             type: "section-group",
             title: "Admin",
             items: [
+              /* Manage the available maps. No longer hardcoded, choose yourself which are relevant. */
+              { type: "link", text: "Maps", href: "/admin/all-maps" },
+
               /* Manage all teams/coalitions that ever participated */
               { type: "link", text: "Teams", href: "/admin/all-teams" },
 
@@ -90,6 +94,7 @@ export default function Admin() {
         ]}
       />
       content=<Routes>
+        <Route path="all-maps" element={<MapTable />} />
         <Route path="all-teams" element={<TeamsTable />} />
         <Route path="seasons" element={<SeasonsTable />} />
         <Route path="season/:seasonId" element={<SeasonEdit />} />
