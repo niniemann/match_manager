@@ -1,26 +1,43 @@
-import { useState } from "react";
-import { Route, Routes, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AppLayout, SideNavigation } from "@cloudscape-design/components";
 
 import { TeamsTable } from "./admin/Teams.js";
 import { SeasonsTable } from "./admin/Seasons.js";
 import { SeasonEdit } from "./admin/SeasonEdit.js";
 import { AuditLogTable } from "./admin/Audit.js";
+import axios from "axios";
+
+const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
+
 
 export default function Admin() {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [activeHref, setActiveHref] = useState("");
+  const [seasonLinkItems, setSeasonLinkTtems] = useState([]);
+
+  useEffect(() => {
+    axios
+      .get(`${API_ENDPOINT}/seasons`)
+      .then(({ data }) => {
+        const items = data.map((season) => {
+          return { type: "link", text: season.name, href: `/admin/season/${season.id}` };
+        });
+
+        setSeasonLinkTtems(items);
+      });
+
+  }, []);
 
   return (
     <AppLayout
       headerSelector="#h"
       navigation=<SideNavigation
-        activeHref={activeHref}
+        activeHref={location.pathname}
         onFollow={(event) => {
           if (!event.detail.external) {
             event.preventDefault();
-            setActiveHref(event.detail.href);
             navigate(event.detail.href);
           }
         }}
@@ -30,7 +47,10 @@ export default function Admin() {
             title: "Admin",
             items: [
               { type: "link", text: "Teams", href: "/admin/all-teams" },
-              { type: "link", text: "Seasons", href: "/admin/seasons" },
+              {
+                type: "expandable-link-group", text: "Seasons", href: "/admin/seasons",
+                items: seasonLinkItems
+              },
               { type: "link", text: "Audit Log", href: "/admin/audit-log" },
             ],
           },
