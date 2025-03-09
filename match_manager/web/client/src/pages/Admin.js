@@ -15,17 +15,13 @@ export default function Admin() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [seasonLinkItems, setSeasonLinkTtems] = useState([]);
+  const [seasons, setSeasons] = useState([]);
 
   useEffect(() => {
     axios
       .get(`${API_ENDPOINT}/seasons`)
       .then(({ data }) => {
-        const items = data.map((season) => {
-          return { type: "link", text: season.name, href: `/admin/season/${season.id}` };
-        });
-
-        setSeasonLinkTtems(items);
+        setSeasons(data);
       });
 
   }, []);
@@ -46,14 +42,51 @@ export default function Admin() {
             type: "section-group",
             title: "Admin",
             items: [
+              /* Manage all teams/coalitions that ever participated */
               { type: "link", text: "Teams", href: "/admin/all-teams" },
+
+              /* Link to each seasons group/division management */
               {
                 type: "expandable-link-group", text: "Seasons", href: "/admin/seasons",
-                items: seasonLinkItems
+                items: seasons.map((season) => ({ type: "link", text: season.name, href: `/admin/season/${season.id}` })
+                )
               },
+
+              /* The audit log -- check who messed up! */
               { type: "link", text: "Audit Log", href: "/admin/audit-log" },
+
+              // For every season, add explicit management pages that would result in too deep of a clutter in the overall
+              // season-nav. Stuff like match scheduling, penalties, the map-pool, ...
+              ...seasons.map((season) => (
+                {
+                  type: "section",
+                  text: season.name,
+                  items: [
+                    { type: "link", text: "Groups", href: `/admin/season/${season.id}` },
+                    { type: "link", text: "Matches", href: `/admin/season/${season.id}/matches` }, /* TODO */
+                  ]
+                }
+              ))
             ],
           },
+          // TODO: Extra section/section-group for team managers, to handle match-scheduling, map-bans, ...
+          {
+            type: "section-group",
+            title: "Team Manager",
+            items: [
+              {
+                type: "section",
+                text: "Dummy-Team",
+                items: [
+                  /* not sure how to separate views, yet -- maybe combine scheduling & map-bans into a single page per match? */
+                  { type: "link", text: "Overview" },
+                  { type: "link", text: "Scheduling" },
+                  { type: "link", text: "Map-Bans" },
+                  { type: "link", text: "Roaster" },
+                ]
+              }
+            ]
+          }
         ]}
       />
       content=<Routes>
