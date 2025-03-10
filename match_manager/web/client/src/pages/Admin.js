@@ -8,6 +8,7 @@ import { SeasonEdit } from "./admin/SeasonEdit.js";
 import { AuditLogTable } from "./admin/Audit.js";
 import axios from "axios";
 import { MapTable } from "./admin/Maps.js";
+import { SeasonMatches } from "./admin/SeasonMatches.js";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
@@ -98,6 +99,7 @@ export default function Admin() {
         <Route path="all-teams" element={<TeamsTable />} />
         <Route path="seasons" element={<SeasonsTable />} />
         <Route path="season/:seasonId" element={<SeasonEdit />} />
+        <Route path="season/:seasonId/matches" element={<SeasonMatches />} />
         <Route path="audit-log" element={<AuditLogTable />} />
       </Routes>
     />

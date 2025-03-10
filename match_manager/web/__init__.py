@@ -11,7 +11,7 @@ from quart_schema import QuartSchema, hide, RequestSchemaValidationError, Respon
 from pydantic import ValidationError
 
 from .. import config
-from .api import login, team, user, season, audit, map as game_map
+from .api import login, team, user, season, audit, map as game_map, match as game_match
 
 from match_manager.model import auth
 
@@ -95,6 +95,7 @@ app.register_blueprint(user.blue)
 app.register_blueprint(season.blue)
 app.register_blueprint(audit.blue)
 app.register_blueprint(game_map.blue)
+app.register_blueprint(game_match.blue)
 
 # The react app does client-side routing for different component pages.
 # This works fine when starting from the index page '/', as the react router will catch links to

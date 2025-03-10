@@ -56,10 +56,10 @@ model operations
 async def list_seasons() -> list[SeasonOverview]:
     """list all seasons"""
     query = (Season
-        .select(Season.id, Season.name, pw.fn.COUNT(MatchGroup.id).alias("num_groups"))
+        .select(Season.id, Season.name, pw.fn.COUNT(MatchGroup.id).alias("num_groups")) # type: ignore
         .join(MatchGroup, pw.JOIN.LEFT_OUTER)
         .group_by(Season)
-        .order_by(Season.id))
+        .order_by(Season.id)) # type: ignore
 
     return list(SeasonOverview(**model_to_dict(result, extra_attrs=['num_groups'])) for result in query)
 
@@ -68,7 +68,7 @@ async def list_seasons() -> list[SeasonOverview]:
 async def get_season(season_id: int) -> SeasonResponse:
     """get the details of a selected season"""
     season = Season.get_by_id(season_id)
-    groups = MatchGroup.select().where(MatchGroup.season_id == season_id)
+    groups = MatchGroup.select().where(MatchGroup.season_id == season_id) # type: ignore
     teamsingroup = TeamInGroup.select()
     teams = Team.select()
 

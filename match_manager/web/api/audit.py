@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 class LogSearchQuery(BaseModel):
     timestamp: datetime | None = None
 
+
 @blue.route('/fetch_log', methods=['GET'])
 @validate_querystring(LogSearchQuery)
 async def search_user(query_args: LogSearchQuery) -> list[model.audit.AuditEventData]:

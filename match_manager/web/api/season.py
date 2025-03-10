@@ -5,7 +5,8 @@ from typing import List
 from quart import Blueprint, request
 from quart_schema import validate_request, validate_response
 
-from match_manager.model import season as model, auth
+from match_manager.model import season as model, auth, game_match
+from match_manager.model.match import MatchResponse
 from match_manager.web.api.login import requires_login
 
 
@@ -33,6 +34,15 @@ async def create_season(data: model.NewSeasonData, author: auth.User) -> model.S
 async def get_season(season_id: int) -> model.SeasonResponse:
     """get a single season"""
     return await model.get_season(season_id)
+
+
+@blue.route('/<int:season_id>/matches', methods=['GET']) # type: ignore
+@validate_response(list[MatchResponse])
+async def get_matches_in_season(season_id: int):
+    """returns all matches in the season"""
+    matches = await game_match.list_matches_in_season(season_id)
+    print(matches)
+    return matches
 
 
 @blue.route('/groups', methods=['POST']) # type: ignore
