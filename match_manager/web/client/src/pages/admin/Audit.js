@@ -3,6 +3,7 @@ import { ColumnLayout, FormField, KeyValuePairs, SpaceBetween, Table, TextFilter
 import { Avatar } from "@cloudscape-design/chat-components";
 
 import axios from "axios";
+import { DateTimeDisplay } from "../../components/DateTime";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
@@ -69,7 +70,7 @@ export function AuditLogTable() {
   const columns = [
     {
         id: "timestamp", header: "Timestamp",
-        cell: (item) => new Date(item.timestamp).toLocaleString()
+        cell: (item) => <DateTimeDisplay timestamp={item.timestamp} />
     },
     {
         id: "author", header: "Author",

@@ -3,11 +3,12 @@ from typing import Literal
 from functools import wraps
 
 from playhouse.shortcuts import model_to_dict
-from pydantic import BaseModel, validate_call
+from pydantic import BaseModel, field_validator, validate_call
 
 import string
 import logging
 
+from match_manager.model.validation import UtcAwareBaseModel
 from match_manager.util import ArgExtractor
 
 from .db.audit_event import AuditEvent
@@ -95,7 +96,7 @@ def log_call(
 pydantic models for validation
 """
 
-class AuditEventData(BaseModel):
+class AuditEventData(UtcAwareBaseModel):
     """Representation of an audit event entry, including extra data for visualization."""
     timestamp: datetime
     author: auth.User
@@ -122,11 +123,7 @@ async def fetch_log(before: datetime | None = None, num_entries: int = 10) -> li
         user = await auth.get_user_info(event.author) # type: ignore
         results.append(
             AuditEventData(
-                # note: the peewee datetime objects are not timezone aware.
-                # the timestamps are in UTC, but the generated string representation does not contain the +00UTC
-                # mark, hence client side libraries (react, js!) assume they are in local time!
-                # --> explicitly set the tzinfo to utc.
-                timestamp=event.timestamp.replace(tzinfo=timezone.utc), # type: ignore
+                timestamp=event.timestamp, # type: ignore
                 author=user,
                 event_type=event.event_type, # type: ignore
                 event_description=event.event_description # type: ignore

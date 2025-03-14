@@ -1,12 +1,13 @@
 
-from datetime import datetime
+from datetime import datetime, timezone, tzinfo
 
 from playhouse.shortcuts import model_to_dict
 
 from match_manager.model.season import MatchGroup
+from match_manager.model.validation import UtcAwareBaseModel
 from .db import match as model, map as game_map, game_match, season
 
-from pydantic import BaseModel, Field, validate_call
+from pydantic import BaseModel, Field, validate_call, field_validator
 
 from match_manager.model import db, auth, audit
 
@@ -25,7 +26,7 @@ class NewMatchData(BaseModel):
     team_b_id: int
 
 
-class MatchResponse(BaseModel):
+class MatchResponse(UtcAwareBaseModel):
     """
     Full data about a match, but references are not resolved and are returned as ids.
     """

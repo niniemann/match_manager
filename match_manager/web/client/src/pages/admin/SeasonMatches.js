@@ -4,6 +4,7 @@ import { Table } from "@cloudscape-design/components";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { DateTimeDisplay } from "../../components/DateTime";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
@@ -48,7 +49,7 @@ export function SeasonMatches() {
     { id: 'team_a', header: '', cell: (match) => teamLookup[match.team_a]?.name },
     { id: 'vs', header: '', cell: (cell) => 'vs' },
     { id: 'team_b', header: '', cell: (match) => teamLookup[match.team_b]?.name },
-    { id: 'match_time', header: 'Date/Time', cell: (match) => <p>{match.match_time}<br />{new Date(match.match_time).toString()}</p> },
+    { id: 'match_time', header: 'Date/Time', cell: (match) => match.match_time && <DateTimeDisplay timestamp={match.match_time} /> },
   ];
 
   return (
