@@ -1,6 +1,7 @@
 /// admin management of matches in a given season
 
-import { Popover, StatusIndicator, Table } from "@cloudscape-design/components";
+import { Popover, SpaceBetween, StatusIndicator, Table } from "@cloudscape-design/components";
+import { Avatar } from "@cloudscape-design/chat-components";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -83,18 +84,32 @@ export function SeasonMatches() {
       case "B_CONFIRMED":
         return waitingForConfirm(match.team_a, match.match_time);
       case "BOTH_CONFIRMED":
-        return <StatusIndicator type="success"><DateTimeDisplay timestamp={match.match_time} /></StatusIndicator>;
+        return (
+          <StatusIndicator type="success">
+            <DateTimeDisplay timestamp={match.match_time} />
+          </StatusIndicator>
+        );
       default:
         return <StatusIndicator type="error">Unknown</StatusIndicator>;
     }
+  };
+
+  const showTeam = (team_id) => {
+    const team = teamLookup[team_id];
+    const logo_url = team?.logo_filename && `${API_ENDPOINT}/teams/logo/${team.logo_filename}`;
+    return (
+      <SpaceBetween direction="horizontal" size="xs">
+        <Avatar imgUrl={logo_url} /> {team?.name}
+      </SpaceBetween>
+    );
   };
 
   const columns = [
     { id: "match_id", header: "Id", cell: (match) => match.id },
     { id: "group", header: "Group", cell: (match) => groupLookup[match.group]?.name },
     { id: "match_time", header: "Date/Time", cell: getScheduleIndicator },
-    { id: "team_a", header: "Team A", cell: (match) => teamLookup[match.team_a]?.name },
-    { id: "team_b", header: "Team B", cell: (match) => teamLookup[match.team_b]?.name },
+    { id: "team_a", header: "Team A", cell: (match) => showTeam(match.team_a) },
+    { id: "team_b", header: "Team B", cell: (match) => showTeam(match.team_b) },
     { id: "state", header: "State", cell: getStateIndicator },
   ];
 
