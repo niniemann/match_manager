@@ -30,6 +30,7 @@ class MatchResponse(UtcAwareBaseModel):
     """
     Full data about a match, but references are not resolved and are returned as ids.
     """
+    id: int
     group: int  # note: model_to_dict omits the '_id' suffix...
     team_a: int
     team_b: int

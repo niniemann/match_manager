@@ -17,7 +17,7 @@ export function DateTimeDisplay({ timestamp }) {
   const as_utc = dateTime.toLocaleString(undefined, optionsUTC);
 
   return (
-    <div>
+    <>
         <span
             data-tooltip-id="datetime-tooltip"
             data-tooltip-content={as_utc}
@@ -25,6 +25,6 @@ export function DateTimeDisplay({ timestamp }) {
                 {as_local}
         </span>
         <Tooltip id="datetime-tooltip" place="top" />
-    </div>
+    </>
   );
 }

@@ -41,7 +41,6 @@ async def get_season(season_id: int) -> model.SeasonResponse:
 async def get_matches_in_season(season_id: int):
     """returns all matches in the season"""
     matches = await game_match.list_matches_in_season(season_id)
-    print(matches)
     return matches
 
 
