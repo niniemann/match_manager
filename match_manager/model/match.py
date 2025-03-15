@@ -66,6 +66,16 @@ async def list_matches_in_season(season_id: int) -> list[MatchResponse]:
 
 
 @validate_call
+async def list_matches_in_group(group_id: int) -> list[MatchResponse]:
+    """returns all matches in a given match-group, shallow!"""
+    group = MatchGroup.get_by_id(group_id)
+    return [
+        MatchResponse(**model_to_dict(m, recurse=False))
+        for m in group.matches
+    ]
+
+
+@validate_call
 @auth.requires_admin()
 @audit.log_call('{data}')
 async def create_match(data: NewMatchData, author: auth.User) -> MatchResponse:

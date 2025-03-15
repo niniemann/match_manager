@@ -136,7 +136,7 @@ export function SeasonsTable() {
             {
               id: "number_groups",
               header: "Groups",
-              cell: (item) => item.num_groups,
+              cell: (item) => item.match_groups.length,
             },
           ]}
           items={seasons}

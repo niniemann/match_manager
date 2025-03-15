@@ -2,7 +2,7 @@
 
 from http import HTTPStatus
 from typing import List
-from quart import Blueprint, request
+from quart import Blueprint
 from quart_schema import validate_request, validate_response
 
 from match_manager.model import season as model, auth, game_match
@@ -42,6 +42,20 @@ async def get_matches_in_season(season_id: int):
     """returns all matches in the season"""
     matches = await game_match.list_matches_in_season(season_id)
     return matches
+
+
+@blue.route('/groups/<int:group_id>/matches', methods=['GET']) # type: ignore
+@validate_response(list[MatchResponse])
+async def get_matches_in_group(group_id: int):
+    """return all matches in a given match-group"""
+    return await game_match.list_matches_in_group(group_id)
+
+
+@blue.route('/groups/<int:group_id>', methods=['GET']) # type: ignore
+@validate_response(model.MatchGroupResponse)
+async def get_group(group_id: int):
+    """get a single group"""
+    return await model.get_match_group(group_id)
 
 
 @blue.route('/groups', methods=['POST']) # type: ignore

@@ -25,10 +25,16 @@ class UpdateMatchGroupData(BaseModel):
     teams: Optional[list[int]] = Field(default=None)
 
 class MatchGroupResponse(BaseModel):
-    """basic info about a MatchGroup - does not contain the matches"""
+    """basic info about a MatchGroup - does not contain the matches, but full team data"""
     id: int
     name: str = Field(min_length=2)
     teams: list[TeamResponse]
+
+
+class MatchGroupOverview(BaseModel):
+    """basic info about a MatchGroup - only its id and name"""
+    id: int
+    name: str
 
 
 class NewSeasonData(BaseModel):
@@ -40,11 +46,13 @@ class SeasonOverview(BaseModel):
     """basic info about a season"""
     id: int
     name: str
-    num_groups: int   # number of groups/stages/divisions in the season
+    match_groups: list[MatchGroupOverview]
 
 
-class SeasonResponse(SeasonOverview):
+class SeasonResponse(BaseModel):
     """season info including configured match groups"""
+    id: int
+    name: str
     match_groups: list[MatchGroupResponse]
 
 
@@ -55,27 +63,48 @@ model operations
 @validate_call
 async def list_seasons() -> list[SeasonOverview]:
     """list all seasons"""
-    query = (Season
-        .select(Season.id, Season.name, pw.fn.COUNT(MatchGroup.id).alias("num_groups")) # type: ignore
-        .join(MatchGroup, pw.JOIN.LEFT_OUTER)
-        .group_by(Season)
-        .order_by(Season.id)) # type: ignore
 
-    return list(SeasonOverview(**model_to_dict(result, extra_attrs=['num_groups'])) for result in query)
+    season_query = Season.select();
+    groups_query = MatchGroup.select() # type: ignore
+    seasons_with_groups = pw.prefetch(season_query, groups_query)
+
+    return [
+        SeasonOverview(
+            id=s.id,
+            name=s.name,
+            match_groups=[
+                MatchGroupOverview(id=m.id, name=m.name)
+                for m in s.match_groups
+            ]
+        )
+        for s in seasons_with_groups
+    ]
 
 
 @validate_call
 async def get_season(season_id: int) -> SeasonResponse:
     """get the details of a selected season"""
+
     season = Season.get_by_id(season_id)
-    groups = MatchGroup.select().where(MatchGroup.season_id == season_id) # type: ignore
-    teamsingroup = TeamInGroup.select()
-    teams = Team.select()
+    groups_q = MatchGroup.select().where(MatchGroup.season_id == season_id) # type: ignore
+    teamsingroup_q = TeamInGroup.select()
+    teams_q = Team.select()
 
-    groups_with_teams = pw.prefetch(groups, teamsingroup, teams)
+    groups_with_teams = pw.prefetch(groups_q, teamsingroup_q, teams_q)
 
-    groups = [MatchGroupResponse(id=g.id, name=g.name, teams=[TeamResponse(**model_to_dict(t.team)) for t in g.teams]) for g in groups]
-    return SeasonResponse(id=season.id, name=season.name, num_groups=len(groups), match_groups=groups)
+    groups = [
+        MatchGroupResponse(
+            id=g.id,
+            name=g.name,
+            teams=[
+                TeamResponse(**model_to_dict(t_in_g.team))
+                for t_in_g in g.teams
+            ]
+        )
+        for g in groups_with_teams
+    ]
+
+    return SeasonResponse(id=season.id, name=season.name, match_groups=groups)
 
 
 @validate_call
@@ -87,7 +116,27 @@ async def create_season(season_data: NewSeasonData, author: auth.User) -> Season
         s = Season(name=season_data.name)
         s.save()
 
-    return SeasonResponse(**model_to_dict(s, backrefs=True), num_groups=0)
+    return SeasonResponse(**model_to_dict(s, backrefs=True))
+
+
+@validate_call
+async def get_match_group(group_id: int) -> MatchGroupResponse:
+    """get the details of a selected match group"""
+    group_with_teams = pw.prefetch(
+        MatchGroup.select().where(MatchGroup.id == group_id), # type: ignore
+        TeamInGroup.select(),
+        Team.select()
+    )
+    assert len(group_with_teams) == 1
+    group = group_with_teams[0]
+    return MatchGroupResponse(
+        id=group.id,
+        name=group.name,
+        teams=[
+            TeamResponse(**model_to_dict(t_in_g.team))
+            for t_in_g in group.teams
+        ]
+    )
 
 
 @validate_call
