@@ -65,7 +65,7 @@ async def list_seasons() -> list[SeasonOverview]:
     """list all seasons"""
 
     season_query = Season.select();
-    groups_query = MatchGroup.select() # type: ignore
+    groups_query = MatchGroup.select().order_by(MatchGroup.id)  # type: ignore
     seasons_with_groups = pw.prefetch(season_query, groups_query)
 
     return [
