@@ -8,7 +8,6 @@ import {
   Form,
   FormField,
   Header,
-  Input,
   KeyValuePairs,
   Modal,
   Popover,
@@ -18,60 +17,54 @@ import {
   StatusIndicator,
   Table,
   TimeInput,
-  Wizard,
 } from "@cloudscape-design/components";
 import { Avatar } from "@cloudscape-design/chat-components";
 import axios from "axios";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { DateTimeDisplay } from "../../components/DateTime";
+import { useMaps } from "../../hooks/useMaps";
+import { useTeams } from "../../hooks/useTeams";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
-/// component and result values for team selection for a match
-function useOppenentSelection() {
-  const [selectedTeamA, setSelectedTeamA] = useState(undefined);
-  const [selectedTeamB, setSelectedTeamB] = useState(undefined);
+/// component to select oppenents from a given group
+function OpponentSelection({ group_id, onTeamAChange, onTeamBChange }) {
+  const [teamAId, setTeamAId] = useState(undefined);
+  const [teamBId, setTeamBId] = useState(undefined);
 
-  const teams = [
-    {
-      "description": "",
-      "id": 8,
-      "logo_filename": "12d6e9b73d2d44d289d8b7fc2a8cfae1_HTD_violet_grande.png",
-      "managers": null,
-      "name": "HaiiTeD",
-      "tag": "HTD"
-    },
-    {
-      "description": "Your friendly neighbourhood fiery-bird.",
-      "id": 6,
-      "logo_filename": "89f45303b21140f89dab7ddf45fed227_phxfat.png",
-      "managers": null,
-      "name": "team.phoenix",
-      "tag": "phx"
-    }
-  ];
+  const { data: teams, teamsLoading } = useTeams(group_id);
 
-  const team_options = teams.map((t) => ({ label: t.name, value: t.id }));
+  const team_options = teams?.map((t) => ({ label: t.name, value: t.id })) || [];
 
-  const component = (
+  return (
     <FormField label="Teams">
       <ColumnLayout columns={2}>
         <Select
-          selectedOption={team_options.find((o) => o.value === selectedTeamA?.id)}
+          selectedOption={team_options.find((o) => o.value === teamAId)}
           options={team_options}
-          onChange={({ detail }) => setSelectedTeamA(teams.find((t) => t.id === detail.selectedOption.value))}
+          onChange={({ detail }) => {
+            setTeamAId(detail.selectedOption.value);
+            const team = teams.find((t) => t.id === detail.selectedOption.value);
+            onTeamAChange(team);
+          }}
+          loadingText="loading"
+          statusType={teamsLoading && "loading"}
         />
         <Select
-          selectedOption={team_options.find((o) => o.value === selectedTeamB?.id)}
+          selectedOption={team_options.find((o) => o.value === teamBId)}
           options={team_options}
-          onChange={({ detail }) => setSelectedTeamB(teams.find((t) => t.id === detail.selectedOption.value))}
+          onChange={({ detail }) => {
+            setTeamBId(detail.selectedOption.value);
+            const team = teams.find((t) => t.id === detail.selectedOption.value);
+            onTeamBChange(team);
+          }}
+          loadingText="loading"
+          statusType={teamsLoading && "loading"}
         />
       </ColumnLayout>
     </FormField>
   );
-
-  return { teamA: selectedTeamA, teamB: selectedTeamB, opponentSelection: component };
 }
 
 /// component and result for match schedule selection
@@ -152,106 +145,90 @@ function useMapSelectionModeSelection() {
 }
 
 /// component and result to select a map
-function useMapSelection() {
-  const maps = [
-    {
-      full_name: "Saint Mere Eglise",
-      id: 1,
-      image_filename: "5aa999bb07a448bab221e2ddbd217adb_sme.webp",
-      short_name: "SME",
-    },
-    {
-      full_name: "Saint Marie Du Mont",
-      id: 2,
-      image_filename: null,
-      short_name: "SMDM",
-    },
-    {
-      full_name: "Carentan",
-      id: 3,
-      image_filename: "8f1287ffdbb540e48d52e92c79819e66_carentan.webp",
-      short_name: "Carentan",
-    },
-  ];
-
+function MapSelection({ onChange }) {
+  const { data: maps, isLoading } = useMaps();
   const [mapId, setMapId] = useState(undefined);
-  const selectedMap = useMemo(() => maps.find((m) => m.id === mapId), [maps, mapId]);
 
-  const map_options = maps.map((m) => ({
+  const map_options = maps?.map((m) => ({
     label: m.short_name,
     description: m.full_name,
     value: m.id,
     iconUrl: m.image_filename && `${API_ENDPOINT}/maps/image/${m.image_filename}`,
   }));
 
-  const component = (
+  return (
     <Select
-      selectedOption={mapId && map_options.find((m) => m.value === mapId)}
-      onChange={({ detail }) => setMapId(detail.selectedOption.value)}
+      selectedOption={mapId && map_options?.find((m) => m.value === mapId)}
+      onChange={({ detail }) => {
+        setMapId(detail.selectedOption.value);
+        onChange(maps?.find((m) => m.id === detail.selectedOption.value));
+      }}
       options={map_options}
       placeholder="select a map"
       triggerVariant="option"
+      loadingText="loading"
+      statusType={isLoading && "loading"}
     />
   );
-
-  return { selectedMap, mapSelection: component };
 }
 
 /// component and result to select a faction for the teams
-function useFactionSelection({ team_a, team_b }) {
-  const allies_options = [
-    { label: team_a?.name, value: team_a?.id },
-    { label: team_b?.name, value: team_b?.id },
-  ];
+function FactionSelection({ team_a, team_b, onChange }) {
+  const option_team_a = { label: team_a?.name || "Team A", value: "A" };
+  const option_team_b = { label: team_b?.name || "Team B", value: "B" };
+  const allies_options = [option_team_a, option_team_b];
 
-  const [allies, setAllies] = useState(undefined);
-  const axis = useMemo(() => allies && (allies.id === team_a?.id ? team_b : team_a), [team_a, team_b, allies]);
+  const [allies, setAllies] = useState(option_team_a);
+  useEffect(() => {
+    onChange({
+      allies: allies.value === "A" ? team_a : team_b,
+      axis: allies.value === "A" ? team_b : team_a,
+      team_a: allies.value === "A" ? "ALLIES" : "AXIS",
+      team_b: allies.value === "A" ? "AXIS" : "ALLIES",
+    });
+  }, [allies, team_a, team_b]);
 
-  const team_a_faction = useMemo(() => allies && (allies.id === team_a?.id ? "ALLIES" : "AXIS"), [team_a, allies]);
-  const team_b_faction = useMemo(() => allies && (allies.id === team_b?.id ? "ALLIES" : "AXIS"), [team_b, allies]);
-
-  const component = (
+  return (
     <>
-
       <ColumnLayout columns={2}>
-
         <FormField label="Allies">
           <Select
-            selectedOption={allies_options.find((o) => o.value === allies?.id)}
-            onChange={({ detail }) => setAllies(detail.selectedOption.value === team_a?.id ? team_a : team_b)}
-            options={allies_options} />
-        </FormField>
-
-        <FormField label="Axis">
-          <Select
-            selectedOption={allies && allies_options.find((o) => o.value !== allies.id)}
-            disabled
+            selectedOption={allies}
+            onChange={({ detail }) => {
+              setAllies(detail.selectedOption);
+            }}
+            options={allies_options}
           />
         </FormField>
+        <FormField label="Axis">
+          <Select selectedOption={allies_options.find((o) => o.value !== allies.value)} disabled />
+        </FormField>
       </ColumnLayout>
-
     </>
   );
-
-  return { allies, axis, team_a_faction, team_b_faction, factionSelection: component };
 }
 
-function NewMatchForm() {
-  const { teamA, teamB, opponentSelection } = useOppenentSelection();
+/// creates a new match within the given match_group
+function NewMatchForm({ group_id }) {
+  const [teamA, setTeamA] = useState(undefined);
+  const [teamB, setTeamB] = useState(undefined);
+
   const { schedule, scheduleSelection } = useScheduleSelection();
   const { mapSelectionMode, mapSelectionModeSelection } = useMapSelectionModeSelection();
-  const { selectedMap, mapSelection } = useMapSelection();
-  const { allies, axis, team_a_faction, team_b_faction, factionSelection } = useFactionSelection({ team_a: teamA, team_b: teamB });
+  const [selectedMap, setSelectedMap] = useState(undefined);
+  const [factions, setFactions] = useState({});
 
   return (
     <>
       <Form>
-        <SpaceBetween direction="vertical" size="m">
-          {opponentSelection}
+        <SpaceBetween direction="vertical" size="xs">
+          <OpponentSelection group_id={group_id} onTeamAChange={setTeamA} onTeamBChange={setTeamB} />
           {scheduleSelection}
           {mapSelectionModeSelection}
-          {mapSelectionMode === "FIXED" && mapSelection}
-          {mapSelectionMode === "BAN_MAP_AND_FACTION" || factionSelection}
+          {mapSelectionMode === "FIXED" && <MapSelection onChange={setSelectedMap} />}
+          {mapSelectionMode === "BAN_MAP_AND_FACTION" || (
+            <FactionSelection team_a={teamA} team_b={teamB} onChange={setFactions} />
+          )}
         </SpaceBetween>
       </Form>
 
@@ -265,10 +242,10 @@ function NewMatchForm() {
             { label: "schedule date/time", value: <DateTimeDisplay timestamp={schedule.datetime} /> },
             { label: "map selection mode", value: mapSelectionMode },
             { label: "selected map", value: JSON.stringify(selectedMap) },
-            { label: "allies", value: JSON.stringify(allies) },
-            { label: "axis", value: JSON.stringify(axis) },
-            { label: "team a faction", value: team_a_faction },
-            { label: "team b faction", value: team_b_faction },
+            { label: "allies", value: factions.allies?.name },
+            { label: "axis", value: factions.axis?.name },
+            { label: "team_a", value: factions.team_a },
+            { label: "team_b", value: factions.team_b },
           ]}
         />
       </Container>
@@ -380,7 +357,7 @@ export function MatchGroupEdit() {
     <>
       {newMatchModalVisible && (
         <Modal visible={newMatchModalVisible} header="Create Match">
-          <NewMatchForm />
+          <NewMatchForm group_id={groupId} />
         </Modal>
       )}
       <Table
