@@ -71,6 +71,18 @@ async def handle_pw_integrity_error(error: pw.IntegrityError):
         ]
     }, HTTPStatus.INTERNAL_SERVER_ERROR
 
+@app.errorhandler(pw.DoesNotExist)
+async def handle_pw_does_not_exist_error(error: pw.DoesNotExist):
+    return {
+        "title": "404: Requested resource not found",
+        "errors": [
+            {
+                "msg": "The requested resource was not found in the database."
+            }
+        ]
+    }, HTTPStatus.NOT_FOUND
+
+
 # configure secrets for oauth2 -- login with discord
 app.secret_key = config.webserver.secret
 app.config['DISCORD_CLIENT_ID'] = config.discord.client_id

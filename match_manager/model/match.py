@@ -76,6 +76,13 @@ async def list_matches_in_group(group_id: int) -> list[MatchResponse]:
 
 
 @validate_call
+async def get_match(match_id: int) -> MatchResponse:
+    """get a single match, shallow!"""
+    m = model.Match.get_by_id(match_id)
+    return MatchResponse(**model_to_dict(m, recurse=False))
+
+
+@validate_call
 @auth.requires_admin()
 @audit.log_call('{data}')
 async def create_match(data: NewMatchData, author: auth.User) -> MatchResponse:

@@ -18,6 +18,13 @@ async def list_matches() -> list[model.MatchResponse]:
     return await model.list_matches()
 
 
+@blue.route('/<int:match_id>', methods=['GET']) # type: ignore
+@validate_response(model.MatchResponse)
+async def get_match(match_id: int):
+    """get a single match"""
+    return await model.get_match(match_id)
+
+
 @blue.route('/', methods=['POST']) # type: ignore
 @requires_login()
 @validate_request(model.NewMatchData)

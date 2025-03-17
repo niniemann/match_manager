@@ -8,7 +8,6 @@ import {
   Form,
   FormField,
   Header,
-  KeyValuePairs,
   Modal,
   Popover,
   RadioGroup,
@@ -20,11 +19,15 @@ import {
 } from "@cloudscape-design/components";
 import { Avatar } from "@cloudscape-design/chat-components";
 import axios from "axios";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { DateTimeDisplay } from "../../components/DateTime";
 import { useMaps } from "../../hooks/useMaps";
 import { useTeams } from "../../hooks/useTeams";
+
+import allies_logo from "../../img/allies_108.png";
+import axis_logo from "../../img/axis_108.png";
+import { MatchPreview } from "../../components/Match";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
@@ -67,81 +70,113 @@ function OpponentSelection({ group_id, onTeamAChange, onTeamBChange }) {
   );
 }
 
-/// component and result for match schedule selection
-function useScheduleSelection() {
+/// component for match schedule selection -- mode as well as time & date (if fixed)
+function ScheduleSelection({ onChange }) {
   const schedule_fixed_date_and_time = { label: "Fixed", value: "FIXED" };
   const schedule_allow_team_managers = { label: "Dynamic", value: "OPEN_FOR_SUGGESTIONS" };
   const schedule_options = [schedule_fixed_date_and_time, schedule_allow_team_managers];
 
-  const [selectedScheduleOption, setSelectedScheduleOption] = useState(schedule_fixed_date_and_time);
-  const [selectedDate, setSelectedDate] = useState(undefined);
-  const [selectedTime, setSelectedTime] = useState(undefined);
+  const [schedule, setSchedule] = useState({
+    mode: "FIXED",
+    date: "",
+    time: "",
+    datetime: undefined,
+    valid: true,
+  });
 
-  const result = useMemo(() => {
-    let dt = null;
-    if (selectedScheduleOption.value === "FIXED" && (selectedDate || selectedTime)) {
-      dt = new Date(`${selectedDate}T${selectedTime}:00Z`);
-    }
+  useEffect(() => {
+    onChange(schedule);
+  }, [onChange, schedule]);
 
+  /// adds a proper datetime value and evaluates the validity of the overall settings
+  const augmentDateTime = (schedule) => {
+    const dt = new Date(`${schedule.date}T${schedule.time}:00Z`);
+    const valid = !isNaN(dt) || (!schedule.date && !schedule.time);
     return {
-      type: selectedScheduleOption.value,
-      datetime: dt,
-      error: dt != null && isNaN(dt?.getTime()) ? "Invalid date/time" : "",
+      ...schedule,
+      datetime: schedule.mode === "FIXED" && !isNaN(dt) ? dt : undefined,
+      valid: valid,
     };
-  }, [selectedDate, selectedTime, selectedScheduleOption]);
+  };
 
-  const component = (
+  const handleModeChange = (newMode) => {
+    setSchedule((prev) => ({
+      ...prev,
+      mode: newMode,
+      // reset date/time when allowing team managers to choose for themselves
+      date: newMode === "OPEN_FOR_SUGGESTIONS" ? "" : prev.date,
+      time: newMode === "OPEN_FOR_SUGGESTIONS" ? "" : prev.time,
+    }));
+    setSchedule(augmentDateTime);
+  };
+
+  const handleDateChange = (newDate) => {
+    setSchedule((prev) => ({
+      ...prev,
+      date: newDate,
+    }));
+    setSchedule(augmentDateTime);
+  };
+
+  const handleTimeChange = (newTime) => {
+    setSchedule((prev) => ({
+      ...prev,
+      time: newTime,
+    }));
+    setSchedule(augmentDateTime);
+  };
+
+  return (
     <>
       <FormField label="Scheduling">
         <RadioGroup
-          onChange={({ detail }) => setSelectedScheduleOption(detail)}
-          value={selectedScheduleOption.value}
+          onChange={({ detail }) => handleModeChange(detail.value)}
+          value={schedule.mode}
           items={schedule_options}
         />
       </FormField>
 
-      {selectedScheduleOption.value === "FIXED" && (
+      {schedule.mode === "FIXED" && (
         <FormField label="Date/Time (UTC)">
           <ColumnLayout columns={2}>
-            <DatePicker onChange={({ detail }) => setSelectedDate(detail.value)} value={selectedDate} />
+            <DatePicker onChange={({ detail }) => handleDateChange(detail.value)} value={schedule.date} />
             <TimeInput
-              onChange={({ detail }) => setSelectedTime(detail.value)}
-              value={selectedTime}
+              onChange={({ detail }) => handleTimeChange(detail.value)}
+              value={schedule.time}
               format="hh:mm"
               placeholder="hh:mm"
-              invalid={result.datetime && Boolean(result.error)}
+              invalid={!schedule.valid}
             />
           </ColumnLayout>
         </FormField>
       )}
     </>
   );
-
-  return { schedule: result, scheduleSelection: component };
 }
 
-/// component and result to determine the map selection mode -- fixed / ban / ...
-function useMapSelectionModeSelection() {
+/// component to determine the map selection mode -- fixed / ban / ...
+function MapSelectionModeSelection({ onChange }) {
   const map_selection_fixed = { label: "Fixed", value: "FIXED" };
   const map_selection_ban_map = { label: "Ban map", value: "BAN_MAP_FIXED_FACTION" };
   const map_selection_ban_map_and_faction = { label: "Ban map & faction", value: "BAN_MAP_AND_FACTION" };
 
   const map_selection_modes = [map_selection_fixed, map_selection_ban_map, map_selection_ban_map_and_faction];
-  const [mapSelectionMode, setMapSelectionMode] = useState(map_selection_fixed);
+  const [mapSelectionMode, setMapSelectionMode] = useState(map_selection_fixed.value);
 
-  const component = (
+  return (
     <>
       <FormField label="Map Selection">
         <RadioGroup
-          value={mapSelectionMode.value}
-          onChange={({ detail }) => setMapSelectionMode(detail)}
+          value={mapSelectionMode}
+          onChange={({ detail }) => {
+            setMapSelectionMode(detail.value);
+            onChange(detail.value);
+          }}
           items={map_selection_modes}
         />
       </FormField>
     </>
   );
-
-  return { mapSelectionMode: mapSelectionMode.value, mapSelectionModeSelection: component };
 }
 
 /// component and result to select a map
@@ -176,9 +211,10 @@ function MapSelection({ onChange }) {
 function FactionSelection({ team_a, team_b, onChange }) {
   const option_team_a = { label: team_a?.name || "Team A", value: "A" };
   const option_team_b = { label: team_b?.name || "Team B", value: "B" };
-  const allies_options = [option_team_a, option_team_b];
+  const options = [option_team_a, option_team_b];
 
   const [allies, setAllies] = useState(option_team_a);
+
   useEffect(() => {
     onChange({
       allies: allies.value === "A" ? team_a : team_b,
@@ -186,23 +222,24 @@ function FactionSelection({ team_a, team_b, onChange }) {
       team_a: allies.value === "A" ? "ALLIES" : "AXIS",
       team_b: allies.value === "A" ? "AXIS" : "ALLIES",
     });
-  }, [allies, team_a, team_b]);
+  }, [allies, team_a, team_b, onChange]);
 
   return (
     <>
       <ColumnLayout columns={2}>
-        <FormField label="Allies">
-          <Select
-            selectedOption={allies}
-            onChange={({ detail }) => {
-              setAllies(detail.selectedOption);
-            }}
-            options={allies_options}
-          />
-        </FormField>
-        <FormField label="Axis">
-          <Select selectedOption={allies_options.find((o) => o.value !== allies.value)} disabled />
-        </FormField>
+        <Select
+          selectedOption={{ ...options.find((o) => o.value === allies.value), iconUrl: allies_logo }}
+          onChange={({ detail }) => {
+            setAllies(detail.selectedOption);
+          }}
+          options={options}
+          triggerVariant="option"
+        />
+        <Select
+          selectedOption={{ ...options.find((o) => o.value !== allies.value), iconUrl: axis_logo }}
+          disabled
+          triggerVariant="option"
+        />
       </ColumnLayout>
     </>
   );
@@ -213,18 +250,24 @@ function NewMatchForm({ group_id }) {
   const [teamA, setTeamA] = useState(undefined);
   const [teamB, setTeamB] = useState(undefined);
 
-  const { schedule, scheduleSelection } = useScheduleSelection();
-  const { mapSelectionMode, mapSelectionModeSelection } = useMapSelectionModeSelection();
+  const [schedule, setSchedule] = useState(undefined);
+  const [mapSelectionMode, setMapSelectionMode] = useState("FIXED");
   const [selectedMap, setSelectedMap] = useState(undefined);
   const [factions, setFactions] = useState({});
 
   return (
-    <>
+    <SpaceBetween direction="vertical" size="l">
       <Form>
         <SpaceBetween direction="vertical" size="xs">
           <OpponentSelection group_id={group_id} onTeamAChange={setTeamA} onTeamBChange={setTeamB} />
-          {scheduleSelection}
-          {mapSelectionModeSelection}
+          <ScheduleSelection onChange={setSchedule} />
+          <MapSelectionModeSelection
+            onChange={(mode) => {
+              setMapSelectionMode(mode);
+              if (mode !== "FIXED") setSelectedMap(undefined);
+              if (mode === "BAN_MAP_AND_FACTION") setFactions(undefined);
+            }}
+          />
           {mapSelectionMode === "FIXED" && <MapSelection onChange={setSelectedMap} />}
           {mapSelectionMode === "BAN_MAP_AND_FACTION" || (
             <FactionSelection team_a={teamA} team_b={teamB} onChange={setFactions} />
@@ -232,24 +275,19 @@ function NewMatchForm({ group_id }) {
         </SpaceBetween>
       </Form>
 
-      <Container header="preview">
-        <KeyValuePairs
-          columns={2}
-          items={[
-            { label: "team a", value: JSON.stringify(teamA) },
-            { label: "team b", value: JSON.stringify(teamB) },
-            { label: "schedule mode", value: schedule.type },
-            { label: "schedule date/time", value: <DateTimeDisplay timestamp={schedule.datetime} /> },
-            { label: "map selection mode", value: mapSelectionMode },
-            { label: "selected map", value: JSON.stringify(selectedMap) },
-            { label: "allies", value: factions.allies?.name },
-            { label: "axis", value: factions.axis?.name },
-            { label: "team_a", value: factions.team_a },
-            { label: "team_b", value: factions.team_b },
-          ]}
+      <Container header={<Header>Preview</Header>}>
+        <MatchPreview
+          match_data={{
+            game_map: selectedMap?.id,
+            match_time: schedule?.datetime,
+            match_time_state: schedule?.mode,
+            team_a: teamA?.id,
+            team_b: teamB?.id,
+            team_a_faction: factions?.team_a,
+          }}
         />
       </Container>
-    </>
+    </SpaceBetween>
   );
 }
 
