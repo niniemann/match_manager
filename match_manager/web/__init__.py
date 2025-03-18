@@ -82,6 +82,16 @@ async def handle_pw_does_not_exist_error(error: pw.DoesNotExist):
         ]
     }, HTTPStatus.NOT_FOUND
 
+@app.errorhandler(ValueError)
+async def handle_value_error(error: ValueError):
+    return {
+        "title": "400: Bad request",
+        "errors": [
+            {
+                "msg": str(error),
+            }
+        ]
+    }, HTTPStatus.BAD_REQUEST
 
 # configure secrets for oauth2 -- login with discord
 app.secret_key = config.webserver.secret

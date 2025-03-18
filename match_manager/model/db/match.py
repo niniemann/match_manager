@@ -1,4 +1,3 @@
-from email.policy import default
 import enum
 from enum import auto
 
@@ -41,6 +40,7 @@ class MatchState(AutoNameEnum):
     COMPLETED = auto()   # match has been fought, and the result been recorded
     CANCELLED = auto()   # match has been cancelled -- may or may not have a score attached to count in stats
 
+
 @enum.unique
 class MatchSchedulingState(AutoNameEnum):
     """The state of the match date/time scheduling."""
@@ -49,6 +49,15 @@ class MatchSchedulingState(AutoNameEnum):
     A_CONFIRMED = auto()            # current entry was confirmed by team_a
     B_CONFIRMED = auto()            # current entry was confirmed by team_b
     BOTH_CONFIRMED = auto()         # date/time has been confirmed by both teams
+
+
+@enum.unique
+class MapSelectionMode(AutoNameEnum):
+    """How the map (and faction) to play will be determined."""
+    FIXED = auto()                  # map and faction fixed by admin
+    BAN_MAP_FIXED_FACTION = auto()  # map will be banned, faction fixed by admin
+    BAN_MAP_AND_FACTION = auto()    # map and faction will be banned
+
 
 
 class Match(pw.Model):
@@ -64,15 +73,14 @@ class Match(pw.Model):
     team_a = pw.ForeignKeyField(team.Team)
     team_b = pw.ForeignKeyField(team.Team)
 
-    # who plays which team -- team_b_faction is implicit.
-    team_a_faction = EnumField(Faction, null=True)
-
     # the date/time of the match, and the current state of the scheduling
     match_time = pw.TimestampField(utc=True, null=True, default=None)
     match_time_state = EnumField(MatchSchedulingState, default=MatchSchedulingState.FIXED)
 
-    # the map being played
+    # the map and faction being played
     game_map = pw.ForeignKeyField(game_map.Map, null=True)
+    team_a_faction = EnumField(Faction, null=True)  # team_b_faction is implicit
+    map_selection_mode = EnumField(MapSelectionMode, default=MapSelectionMode.FIXED)
 
     # the winning team and how they scored
     winner = pw.ForeignKeyField(team.Team, null=True)

@@ -2,6 +2,7 @@
 
 import {
   Button,
+  Checkbox,
   ColumnLayout,
   Container,
   DatePicker,
@@ -19,7 +20,7 @@ import {
 } from "@cloudscape-design/components";
 import { Avatar } from "@cloudscape-design/chat-components";
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { DateTimeDisplay } from "../../components/DateTime";
 import { useMaps } from "../../hooks/useMaps";
@@ -28,6 +29,8 @@ import { useTeams } from "../../hooks/useTeams";
 import allies_logo from "../../img/allies_108.png";
 import axis_logo from "../../img/axis_108.png";
 import { MatchPreview } from "../../components/Match";
+import { useCreateMatch, useMatchesInGroup } from "../../hooks/useMatches";
+import { ApiCallError } from "../../components/Dialogs";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
@@ -246,7 +249,7 @@ function FactionSelection({ team_a, team_b, onChange }) {
 }
 
 /// creates a new match within the given match_group
-function NewMatchForm({ group_id }) {
+function NewMatchForm({ group_id, onClose }) {
   const [teamA, setTeamA] = useState(undefined);
   const [teamB, setTeamB] = useState(undefined);
 
@@ -254,26 +257,73 @@ function NewMatchForm({ group_id }) {
   const [mapSelectionMode, setMapSelectionMode] = useState("FIXED");
   const [selectedMap, setSelectedMap] = useState(undefined);
   const [factions, setFactions] = useState({});
+  const [keepOpen, setKeepOpen] = useState(false);
+
+  const { mutate: createMatch, error: errorCreatingMatch, isLoading: isCreatingMatch } = useCreateMatch();
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    createMatch({
+      group_id: group_id,
+      team_a_id: teamA.id,
+      team_b_id: teamB.id,
+      game_map: selectedMap?.id,
+      team_a_faction: factions?.team_a,
+      map_selection_mode: mapSelectionMode,
+      match_time: schedule.datetime,
+      match_time_state: schedule.mode,
+    },
+    {
+      onSuccess: () => {
+        if (!keepOpen) {
+          onClose();
+        }
+      }
+    }
+  );
+  };
 
   return (
     <SpaceBetween direction="vertical" size="l">
-      <Form>
-        <SpaceBetween direction="vertical" size="xs">
-          <OpponentSelection group_id={group_id} onTeamAChange={setTeamA} onTeamBChange={setTeamB} />
-          <ScheduleSelection onChange={setSchedule} />
-          <MapSelectionModeSelection
-            onChange={(mode) => {
-              setMapSelectionMode(mode);
-              if (mode !== "FIXED") setSelectedMap(undefined);
-              if (mode === "BAN_MAP_AND_FACTION") setFactions(undefined);
-            }}
-          />
-          {mapSelectionMode === "FIXED" && <MapSelection onChange={setSelectedMap} />}
-          {mapSelectionMode === "BAN_MAP_AND_FACTION" || (
-            <FactionSelection team_a={teamA} team_b={teamB} onChange={setFactions} />
-          )}
-        </SpaceBetween>
-      </Form>
+      <form onSubmit={handleSubmit}>
+        <Form
+          actions={
+            <SpaceBetween direction="horizontal" size="xs">
+              <Button formAction="none" variant="link" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button variant="primary" disabled={!teamA || !teamB || isCreatingMatch}>
+                Create
+              </Button>
+            </SpaceBetween>
+          }
+          secondaryActions={
+            <Checkbox onChange={({detail}) => setKeepOpen(detail.checked)}
+            checked={keepOpen} description="Keep this dialog open after creating a match.">
+              Create more
+            </Checkbox>
+          }
+        >
+          {errorCreatingMatch && <ApiCallError error={errorCreatingMatch.response.data} />}
+
+          <SpaceBetween direction="vertical" size="xs">
+            <OpponentSelection group_id={group_id} onTeamAChange={setTeamA} onTeamBChange={setTeamB} />
+            <ScheduleSelection onChange={setSchedule} />
+            <MapSelectionModeSelection
+              onChange={(mode) => {
+                setMapSelectionMode(mode);
+                if (mode !== "FIXED") setSelectedMap(undefined);
+                if (mode === "BAN_MAP_AND_FACTION") setFactions(undefined);
+              }}
+            />
+            {mapSelectionMode === "FIXED" && <MapSelection onChange={setSelectedMap} />}
+            {mapSelectionMode === "BAN_MAP_AND_FACTION" || (
+              <FactionSelection team_a={teamA} team_b={teamB} onChange={setFactions} />
+            )}
+          </SpaceBetween>
+        </Form>
+      </form>
 
       <Container header={<Header>Preview</Header>}>
         <MatchPreview
@@ -298,8 +348,9 @@ export function MatchGroupEdit() {
   // we query data for *all* teams, not just the ones in the group, as it is
   // possible to remove a team from the group without removing past matches...
   const [teamLookup, setTeamLookup] = useState({}); // lookup for team-id -> team-info
-  const [matches, setMatches] = useState([]); // table rows
   const [newMatchModalVisible, setNewMatchModalVisible] = useState(false);
+
+  const { data: matches, isLoading: matchesLoading } = useMatchesInGroup(groupId);
 
   useEffect(() => {
     const init = async () => {
@@ -315,10 +366,6 @@ export function MatchGroupEdit() {
         return acc;
       }, {});
       setTeamLookup(lookup);
-
-      // gather match data
-      const { data: matchData } = await axios.get(`${API_ENDPOINT}/seasons/groups/${groupId}/matches`);
-      setMatches(matchData);
     };
 
     init();
@@ -394,8 +441,8 @@ export function MatchGroupEdit() {
   return (
     <>
       {newMatchModalVisible && (
-        <Modal visible={newMatchModalVisible} header="Create Match">
-          <NewMatchForm group_id={groupId} />
+        <Modal visible={newMatchModalVisible} header="Create Match" onDismiss={() => setNewMatchModalVisible(false)}>
+          <NewMatchForm group_id={groupId} onClose={() => setNewMatchModalVisible(false)} />
         </Modal>
       )}
       <Table
@@ -415,6 +462,7 @@ export function MatchGroupEdit() {
             All Matches in "{group.name}"
           </Header>
         }
+        loading={matchesLoading}
       />
     </>
   );
