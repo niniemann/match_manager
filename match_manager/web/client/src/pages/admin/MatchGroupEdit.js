@@ -324,7 +324,7 @@ function NewMatchForm({ group_id, onClose }) {
           </SpaceBetween>
         </Form>
       </form>
-
+      {/*
       <Container header={<Header>Preview</Header>}>
         <MatchPreview
           match_data={{
@@ -337,6 +337,7 @@ function NewMatchForm({ group_id, onClose }) {
           }}
         />
       </Container>
+      */}
     </SpaceBetween>
   );
 }
