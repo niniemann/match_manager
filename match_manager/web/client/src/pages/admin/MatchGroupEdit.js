@@ -2,6 +2,7 @@
 
 import {
   Button,
+  ButtonGroup,
   Checkbox,
   ColumnLayout,
   Container,
@@ -29,8 +30,10 @@ import { useTeams } from "../../hooks/useTeams";
 import allies_logo from "../../img/allies_108.png";
 import axis_logo from "../../img/axis_108.png";
 import { MatchPreview } from "../../components/Match";
-import { useCreateMatch, useMatchesInGroup } from "../../hooks/useMatches";
+import { useCreateMatch, useMatchesInGroup, useRemoveMatch } from "../../hooks/useMatches";
 import { ApiCallError } from "../../components/Dialogs";
+import { toast } from "react-toastify";
+import { showErrorToast } from "../../components/ErrorToast";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
@@ -41,7 +44,8 @@ function OpponentSelection({ group_id, onTeamAChange, onTeamBChange }) {
 
   const { data: teams, teamsLoading } = useTeams(group_id);
 
-  const team_options = teams?.map((t) => ({ label: t.name, value: t.id })) || [];
+  const team_options =
+    teams?.map((t) => ({ label: t.name, value: t.id, iconUrl: `${API_ENDPOINT}/teams/logo/${t.logo_filename}` })) || [];
 
   return (
     <FormField label="Teams">
@@ -56,6 +60,7 @@ function OpponentSelection({ group_id, onTeamAChange, onTeamBChange }) {
           }}
           loadingText="loading"
           statusType={teamsLoading && "loading"}
+          triggerVariant="option"
         />
         <Select
           selectedOption={team_options.find((o) => o.value === teamBId)}
@@ -67,6 +72,7 @@ function OpponentSelection({ group_id, onTeamAChange, onTeamBChange }) {
           }}
           loadingText="loading"
           statusType={teamsLoading && "loading"}
+          triggerVariant="option"
         />
       </ColumnLayout>
     </FormField>
@@ -264,24 +270,26 @@ function NewMatchForm({ group_id, onClose }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    createMatch({
-      group_id: group_id,
-      team_a_id: teamA.id,
-      team_b_id: teamB.id,
-      game_map: selectedMap?.id,
-      team_a_faction: factions?.team_a,
-      map_selection_mode: mapSelectionMode,
-      match_time: schedule.datetime,
-      match_time_state: schedule.mode,
-    },
-    {
-      onSuccess: () => {
-        if (!keepOpen) {
-          onClose();
-        }
+    createMatch(
+      {
+        group_id: group_id,
+        team_a_id: teamA.id,
+        team_b_id: teamB.id,
+        game_map: selectedMap?.id,
+        team_a_faction: factions?.team_a,
+        map_selection_mode: mapSelectionMode,
+        match_time: schedule.datetime,
+        match_time_state: schedule.mode,
+      },
+      {
+        onSuccess: (match_data) => {
+          toast.success(`New match (${match_data.id}): ${teamA.name} vs ${teamB.name} created.`);
+          if (!keepOpen) {
+            onClose();
+          }
+        },
       }
-    }
-  );
+    );
   };
 
   return (
@@ -299,8 +307,11 @@ function NewMatchForm({ group_id, onClose }) {
             </SpaceBetween>
           }
           secondaryActions={
-            <Checkbox onChange={({detail}) => setKeepOpen(detail.checked)}
-            checked={keepOpen} description="Keep this dialog open after creating a match.">
+            <Checkbox
+              onChange={({ detail }) => setKeepOpen(detail.checked)}
+              checked={keepOpen}
+              description="Keep this dialog open after creating a match."
+            >
               Create more
             </Checkbox>
           }
@@ -352,6 +363,7 @@ export function MatchGroupEdit() {
   const [newMatchModalVisible, setNewMatchModalVisible] = useState(false);
 
   const { data: matches, isLoading: matchesLoading } = useMatchesInGroup(groupId);
+  const { mutate: removeMatch } = useRemoveMatch();
 
   useEffect(() => {
     const init = async () => {
@@ -431,12 +443,42 @@ export function MatchGroupEdit() {
     );
   };
 
+
+
   const columns = [
     { id: "match_id", header: "Id", cell: (match) => match.id },
     { id: "match_time", header: "Date/Time", cell: getScheduleIndicator },
     { id: "team_a", header: "Team A", cell: (match) => showTeam(match.team_a) },
     { id: "team_b", header: "Team B", cell: (match) => showTeam(match.team_b) },
     { id: "state", header: "State", cell: getStateIndicator },
+    {
+      id: "actions",
+      header: "",
+      cell: (match) => (
+        <ButtonGroup
+        onItemClick={({ detail }) => {
+          switch (detail.id) {
+            case "delete":
+              removeMatch(match.id, {
+                onError: (err) => showErrorToast(err),
+                // onSuccess: () => toast(`removed match ${match.id}`, { type: "success" }),
+              });
+              break;
+            default:
+              console.log(JSON.stringify(detail));
+          }
+        }}
+          items={[
+            { type: "icon-button", id: "edit", iconName: "edit", text: "edit" },
+            { type: "menu-dropdown", id: "more", text: "more", items: [
+              { id: "delete", iconName: "remove", text: "delete" },
+            ]},
+          ]}
+          variant="icon"
+          dropdownExpandToViewport
+        />
+      ),
+    },
   ];
 
   return (

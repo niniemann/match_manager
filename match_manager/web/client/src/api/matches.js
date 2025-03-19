@@ -22,3 +22,7 @@ export const createMatch = async (match_data) => {
     const { data } = await axios.post(`${API_ENDPOINT}/matches/`, { ...match_data }, { withCredentials: true });
     return data;
 }
+
+export const removeMatch = async (match_id) => {
+    await axios.delete(`${API_ENDPOINT}/matches/${match_id}`, { withCredentials: true });
+}

@@ -14,6 +14,8 @@ import { SunIcon as SunIconOutline, MoonIcon as MoonIconOutline } from "@heroico
 import TopNavigation from "@cloudscape-design/components/top-navigation";
 import { applyMode, Mode } from "@cloudscape-design/global-styles";
 
+import { ToastContainer } from 'react-toastify';
+
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
 function App() {
@@ -83,6 +85,7 @@ function App() {
 
   return (
     <div className="flex flex-col">
+      <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "light"} closeOnClick={true} />
       {/* always show the main navigation on the top of the screen */}
       <div id="h" style={{ position: "sticky", top: 0, zIndex: 1002 }}>
         <TopNavigation
