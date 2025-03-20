@@ -19,18 +19,17 @@ import {
   Table,
   TimeInput,
 } from "@cloudscape-design/components";
-import { Avatar } from "@cloudscape-design/chat-components";
+import { Avatar, LoadingBar } from "@cloudscape-design/chat-components";
 import axios from "axios";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { DateTimeDisplay } from "../../components/DateTime";
 import { useMaps } from "../../hooks/useMaps";
-import { useTeams } from "../../hooks/useTeams";
+import { useTeam, useTeams } from "../../hooks/useTeams";
 
 import allies_logo from "../../img/allies_108.png";
 import axis_logo from "../../img/axis_108.png";
-import { MatchPreview } from "../../components/Match";
-import { useCreateMatch, useMatchesInGroup, useRemoveMatch } from "../../hooks/useMatches";
+import { useCreateMatch, useMatch, useMatchesInGroup, useRemoveMatch } from "../../hooks/useMatches";
 import { ApiCallError } from "../../components/Dialogs";
 import { toast } from "react-toastify";
 import { showErrorToast } from "../../components/ErrorToast";
@@ -42,7 +41,7 @@ function OpponentSelection({ group_id, onTeamAChange, onTeamBChange }) {
   const [teamAId, setTeamAId] = useState(undefined);
   const [teamBId, setTeamBId] = useState(undefined);
 
-  const { data: teams, teamsLoading } = useTeams(group_id);
+  const { data: teams, isLoading: teamsLoading } = useTeams(group_id);
 
   const team_options =
     teams?.map((t) => ({ label: t.name, value: t.id, iconUrl: `${API_ENDPOINT}/teams/logo/${t.logo_filename}` })) || [];
@@ -80,21 +79,35 @@ function OpponentSelection({ group_id, onTeamAChange, onTeamBChange }) {
 }
 
 /// component for match schedule selection -- mode as well as time & date (if fixed)
-function ScheduleSelection({ onChange }) {
+function ScheduleSelection({ onChange, initial }) {
   const schedule_fixed_date_and_time = { label: "Fixed", value: "FIXED" };
   const schedule_allow_team_managers = { label: "Dynamic", value: "OPEN_FOR_SUGGESTIONS" };
   const schedule_options = [schedule_fixed_date_and_time, schedule_allow_team_managers];
 
+  let date, time;
+  if (initial?.datetime) {
+    const dt = initial.datetime;
+    const year = dt.getUTCFullYear();
+    const month = String(dt.getUTCMonth() + 1).padStart(2, "0");
+    const mday = String(dt.getUTCDate()).padStart(2, "0");
+    const hour = String(dt.getUTCHours()).padStart(2, "0");
+    const minute = String(dt.getUTCMinutes()).padStart(2, "0");
+
+    date = `${year}-${month}-${mday}`;
+    time = `${hour}:${minute}`;
+  }
+
   const [schedule, setSchedule] = useState({
-    mode: "FIXED",
-    date: "",
-    time: "",
-    datetime: undefined,
+    mode: initial?.mode || "FIXED",
+    date: date || "",
+    time: time || "",
+    datetime: initial?.datetime,
     valid: true,
   });
 
   useEffect(() => {
     onChange(schedule);
+    console.log(schedule);
   }, [onChange, schedule]);
 
   /// adds a proper datetime value and evaluates the validity of the overall settings
@@ -335,20 +348,135 @@ function NewMatchForm({ group_id, onClose }) {
           </SpaceBetween>
         </Form>
       </form>
-      {/*
-      <Container header={<Header>Preview</Header>}>
-        <MatchPreview
-          match_data={{
-            game_map: selectedMap?.id,
-            match_time: schedule?.datetime,
-            match_time_state: schedule?.mode,
-            team_a: teamA?.id,
-            team_b: teamB?.id,
-            team_a_faction: factions?.team_a,
-          }}
-        />
-      </Container>
-      */}
+    </SpaceBetween>
+  );
+}
+
+function EditMatchForm({ match_id, onClose }) {
+  const { data: match_data, isLoading: matchLoading, error: matchLoadingError } = useMatch(match_id);
+  const { data: team_a, isLoading: teamALoading, error: teamALoadingError } = useTeam(match_data?.team_a);
+  const { data: team_b, isLoading: teamBLoading, error: teamBLoadingError } = useTeam(match_data?.team_b);
+
+  const isLoading = matchLoading || teamALoading || teamBLoading;
+  const error = matchLoadingError || teamALoadingError || teamBLoadingError;
+
+  const oldMatchData = useMemo(
+    () => ({
+      // TODO: handle map and faction as well
+      // game_map: match_data?.game_map,
+      // game_map_selection_mode: match_data?.map_selection_mode,
+
+      schedule: {
+        // reduce all "confirmed" states to "OPEN_FOR_SUGGESTIONS", as that is what the form returns if nothing changes
+        mode: match_data?.match_time_state === "FIXED" ? "FIXED" : "OPEN_FOR_SUGGESTIONS",
+        datetime: match_data?.match_time && new Date(match_data.match_time),
+      },
+    }),
+    [match_data]
+  );
+
+  const [newMatchData, setNewMatchData] = useState({ ...oldMatchData });
+
+  const hasUnsavedChanges = useMemo(() => {
+    console.log(`old:`, oldMatchData);
+    console.log(`new:`, newMatchData);
+    return (
+      oldMatchData.schedule.mode !== newMatchData.schedule.mode ||
+      oldMatchData.schedule.datetime?.getTime() !== newMatchData.schedule.datetime?.getTime()
+    );
+  }, [oldMatchData, newMatchData]);
+
+  // wrapped in useCallback to maintain a stable function reference -- the ScheduleSelection component memoizes it,
+  // and without wrapping it the function identity changes every re-render, triggering the effect in the selection,
+  // changing state, triggering a re-render, changing the function identity, ... in an infinite loop.
+  const handleNewSchedule = useCallback(
+    (schedule) => {
+      setNewMatchData((old) => ({
+        ...old,
+        schedule: {
+          ...old.schedule,
+          mode: schedule.mode,
+          datetime: schedule.datetime,
+        },
+      }));
+    },
+    [setNewMatchData]
+  );
+
+  // Ensure that everything is loaded before rendering the editing-components.
+  // We need the data to set initial values.
+  if (isLoading) {
+    return <LoadingBar variant="gen-ai-masked" />;
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // TODO: save match, toast & close
+    toast.info("TODO: Save the match.");
+    onClose();
+  };
+
+  return (
+    <SpaceBetween direction="vertical" size="l">
+      <form onSubmit={handleSubmit}>
+        <Form
+          actions={
+            <SpaceBetween direction="horizontal" size="xs">
+              <Button formAction="none" variant="link" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button variant="primary" disabled={isLoading || !hasUnsavedChanges}>
+                Save
+              </Button>
+            </SpaceBetween>
+          }
+        >
+          {error && <ApiCallError error={error.response?.data} />}
+
+          <SpaceBetween direction="vertical" size="xs">
+            <FormField label="Teams">
+              <ColumnLayout columns={2}>
+                <Select
+                  selectedOption={{
+                    label: team_a?.name,
+                    value: team_a?.id,
+                    iconUrl: team_a?.logo_filename && `${API_ENDPOINT}/teams/logo/${team_a.logo_filename}`,
+                  }}
+                  loadingText="loading"
+                  statusType={isLoading && "loading"}
+                  triggerVariant="option"
+                  disabled
+                />
+                <Select
+                  selectedOption={{
+                    label: team_b?.name,
+                    value: team_b?.id,
+                    iconUrl: team_b?.logo_filename && `${API_ENDPOINT}/teams/logo/${team_b.logo_filename}`,
+                  }}
+                  loadingText="loading"
+                  statusType={isLoading && "loading"}
+                  triggerVariant="option"
+                  disabled
+                />
+              </ColumnLayout>
+            </FormField>
+            <ScheduleSelection onChange={handleNewSchedule} initial={oldMatchData.schedule} />
+            {/*
+            <MapSelectionModeSelection
+              onChange={(mode) => {
+                setMapSelectionMode(mode);
+                if (mode !== "FIXED") setSelectedMap(undefined);
+                if (mode === "BAN_MAP_AND_FACTION") setFactions(undefined);
+              }}
+            />
+            {mapSelectionMode === "FIXED" && <MapSelection onChange={setSelectedMap} />}
+            {mapSelectionMode === "BAN_MAP_AND_FACTION" || (
+              <FactionSelection team_a={teamA} team_b={teamB} onChange={setFactions} />
+            )}
+            */}
+          </SpaceBetween>
+        </Form>
+      </form>
     </SpaceBetween>
   );
 }
@@ -364,6 +492,8 @@ export function MatchGroupEdit() {
 
   const { data: matches, isLoading: matchesLoading } = useMatchesInGroup(groupId);
   const { mutate: removeMatch } = useRemoveMatch();
+
+  const [matchToEdit, setMatchToEdit] = useState(undefined);
 
   useEffect(() => {
     const init = async () => {
@@ -443,8 +573,6 @@ export function MatchGroupEdit() {
     );
   };
 
-
-
   const columns = [
     { id: "match_id", header: "Id", cell: (match) => match.id },
     { id: "match_time", header: "Date/Time", cell: getScheduleIndicator },
@@ -456,23 +584,29 @@ export function MatchGroupEdit() {
       header: "",
       cell: (match) => (
         <ButtonGroup
-        onItemClick={({ detail }) => {
-          switch (detail.id) {
-            case "delete":
-              removeMatch(match.id, {
-                onError: (err) => showErrorToast(err),
-                // onSuccess: () => toast(`removed match ${match.id}`, { type: "success" }),
-              });
-              break;
-            default:
-              console.log(JSON.stringify(detail));
-          }
-        }}
+          onItemClick={({ detail }) => {
+            switch (detail.id) {
+              case "delete":
+                removeMatch(match.id, {
+                  onError: (err) => showErrorToast(err),
+                  onSuccess: () => toast.success(`removed match ${match.id}`),
+                });
+                break;
+              case "edit":
+                setMatchToEdit(match);
+                break;
+              default:
+                console.log(JSON.stringify(detail));
+            }
+          }}
           items={[
             { type: "icon-button", id: "edit", iconName: "edit", text: "edit" },
-            { type: "menu-dropdown", id: "more", text: "more", items: [
-              { id: "delete", iconName: "remove", text: "delete" },
-            ]},
+            {
+              type: "menu-dropdown",
+              id: "more",
+              text: "more",
+              items: [{ id: "delete", iconName: "remove", text: "delete" }],
+            },
           ]}
           variant="icon"
           dropdownExpandToViewport
@@ -486,6 +620,11 @@ export function MatchGroupEdit() {
       {newMatchModalVisible && (
         <Modal visible={newMatchModalVisible} header="Create Match" onDismiss={() => setNewMatchModalVisible(false)}>
           <NewMatchForm group_id={groupId} onClose={() => setNewMatchModalVisible(false)} />
+        </Modal>
+      )}
+      {matchToEdit && (
+        <Modal visible={true} header="Edit Match" onDismiss={() => setMatchToEdit(undefined)}>
+          <EditMatchForm match_id={matchToEdit.id} onClose={() => setMatchToEdit(undefined)} />
         </Modal>
       )}
       <Table
