@@ -29,7 +29,7 @@ import { useTeam, useTeams } from "../../hooks/useTeams";
 
 import allies_logo from "../../img/allies_108.png";
 import axis_logo from "../../img/axis_108.png";
-import { useCreateMatch, useMatch, useMatchesInGroup, useRemoveMatch } from "../../hooks/useMatches";
+import { useCreateMatch, useMatch, useMatchesInGroup, useRemoveMatch, useUpdateMatch } from "../../hooks/useMatches";
 import { ApiCallError } from "../../components/Dialogs";
 import { toast } from "react-toastify";
 import { showErrorToast } from "../../components/ErrorToast";
@@ -205,9 +205,9 @@ function MapSelectionModeSelection({ onChange }) {
 }
 
 /// component and result to select a map
-function MapSelection({ onChange }) {
+function MapSelection({ onChange, initial_map_id }) {
   const { data: maps, isLoading } = useMaps();
-  const [mapId, setMapId] = useState(undefined);
+  const [mapId, setMapId] = useState(initial_map_id);
 
   const map_options = maps?.map((m) => ({
     label: m.short_name,
@@ -215,6 +215,12 @@ function MapSelection({ onChange }) {
     value: m.id,
     iconUrl: m.image_filename && `${API_ENDPOINT}/maps/image/${m.image_filename}`,
   }));
+
+  useEffect(() => {
+    if (!isLoading && initial_map_id) {
+      onChange(maps?.find((m) => m.id === initial_map_id));
+    }
+  }, [isLoading, initial_map_id, onChange, maps]);
 
   return (
     <Select
@@ -232,13 +238,20 @@ function MapSelection({ onChange }) {
   );
 }
 
-/// component and result to select a faction for the teams
-function FactionSelection({ team_a, team_b, onChange }) {
+/**
+ * component and result to select a faction for the teams
+ * @param {Object} param0
+ * @param {*} param0.team_a
+ * @param {*} param0.team_b
+ * @param {*} param0.onChange
+ * @param {'A' | 'B'} param0.initial_allies
+ */
+function FactionSelection({ team_a, team_b, onChange, initial_allies }) {
   const option_team_a = { label: team_a?.name || "Team A", value: "A" };
   const option_team_b = { label: team_b?.name || "Team B", value: "B" };
   const options = [option_team_a, option_team_b];
 
-  const [allies, setAllies] = useState(option_team_a);
+  const [allies, setAllies] = useState(initial_allies === "B" ? option_team_b : option_team_a);
 
   useEffect(() => {
     onChange({
@@ -286,7 +299,7 @@ function NewMatchForm({ group_id, onClose }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!schedule?.valid) {
-      toast.error('Invalid date/time provided. Make sure to set both or none.');
+      toast.error("Invalid date/time provided. Make sure to set both or none.");
       return;
     }
 
@@ -364,32 +377,46 @@ function EditMatchForm({ match_id, onClose }) {
   const { data: team_a, isLoading: teamALoading, error: teamALoadingError } = useTeam(match_data?.team_a);
   const { data: team_b, isLoading: teamBLoading, error: teamBLoadingError } = useTeam(match_data?.team_b);
 
+  const { mutate: updateMatch, isLoading: isUpdating, error: errorUpdating } = useUpdateMatch();
+
   const isLoading = matchLoading || teamALoading || teamBLoading;
-  const error = matchLoadingError || teamALoadingError || teamBLoadingError;
+  const error = matchLoadingError || teamALoadingError || teamBLoadingError || errorUpdating;
 
   const oldMatchData = useMemo(
     () => ({
-      // TODO: handle map and faction as well
-      // game_map: match_data?.game_map,
-      // game_map_selection_mode: match_data?.map_selection_mode,
+      game_map: match_data?.game_map,
+      map_selection_mode: match_data?.map_selection_mode,
+      team_a_faction: match_data?.team_a_faction,
 
       schedule: {
         // reduce all "confirmed" states to "OPEN_FOR_SUGGESTIONS", as that is what the form returns if nothing changes
         mode: match_data?.match_time_state === "FIXED" ? "FIXED" : "OPEN_FOR_SUGGESTIONS",
         datetime: match_data?.match_time && new Date(match_data.match_time),
+        valid: true,
       },
     }),
     [match_data]
   );
 
+
+  // race condition: if oldMatchData is not loaded yet... newMatchData is initialized different from the actual old data. :(
   const [newMatchData, setNewMatchData] = useState({ ...oldMatchData });
+  // to circumvent this: reset newMatchData once after loading!
+  useEffect(() => {
+    if (isLoading) return;
+    setNewMatchData(oldMatchData);
+  }, [isLoading, setNewMatchData]);
+
 
   const hasUnsavedChanges = useMemo(() => {
     console.log(`old:`, oldMatchData);
     console.log(`new:`, newMatchData);
     return (
       oldMatchData.schedule.mode !== newMatchData.schedule.mode ||
-      oldMatchData.schedule.datetime?.getTime() !== newMatchData.schedule.datetime?.getTime()
+      oldMatchData.schedule.datetime?.getTime() !== newMatchData.schedule.datetime?.getTime() ||
+      oldMatchData.game_map !== newMatchData.game_map ||
+      oldMatchData.map_selection_mode !== newMatchData.map_selection_mode ||
+      oldMatchData.team_a_faction !== newMatchData.team_a_faction
     );
   }, [oldMatchData, newMatchData]);
 
@@ -411,6 +438,25 @@ function EditMatchForm({ match_id, onClose }) {
     [setNewMatchData]
   );
 
+  const handleMapModeChange = useCallback(
+    (mode) => {
+      setNewMatchData((old) => ({ ...old, map_selection_mode: mode }));
+
+      // reset map and faction settings when switching to ban-modes
+      if (mode !== "FIXED") setNewMatchData((old) => ({ ...old, game_map: null }));
+      if (mode === "BAN_MAP_AND_FACTION") setNewMatchData((old) => ({ ...old, team_a_faction: null }));
+    },
+    [setNewMatchData]
+  );
+
+  const handleMapChange = useCallback((map) => {
+    setNewMatchData((old) => ({ ...old, game_map: map.id }));
+  }, [setNewMatchData]);
+
+  const handleFactionChange = useCallback((factions) => {
+    setNewMatchData((old) => ({ ...old, team_a_faction: factions.team_a }));
+  }, [setNewMatchData]);
+
   // Ensure that everything is loaded before rendering the editing-components.
   // We need the data to set initial values.
   if (isLoading) {
@@ -420,14 +466,39 @@ function EditMatchForm({ match_id, onClose }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    if (isUpdating) return;
+
     if (!newMatchData.schedule?.valid) {
-      toast.error('Invalid date/time provided. Make sure to set both or none.');
+      toast.error("Invalid date/time provided. Make sure to set both or none.");
       return;
     }
 
-    // TODO: save match, toast & close
-    toast.info("TODO: Save the match.");
-    onClose();
+    // create the diff of settings
+    // set use 'null' to represent 'None', and 'undefined' for 'not changed'
+    const game_map_changed = newMatchData.game_map !== oldMatchData.game_map;
+    const map_mode_changed = newMatchData.map_selection_mode !== oldMatchData.map_selection_mode;
+    const match_time_changed = newMatchData.schedule.datetime !== oldMatchData.schedule.datetime;
+    const schedule_mode_changed = newMatchData.schedule.mode !== oldMatchData.schedule.mode;
+    const faction_changed = newMatchData.team_a_faction !== oldMatchData.team_a_faction;
+
+
+    const patch = {
+      game_map: game_map_changed ? newMatchData.game_map || null : undefined,
+      map_selection_mode: map_mode_changed ? newMatchData.map_selection_mode || null : undefined,
+      match_time: match_time_changed ? newMatchData.schedule.datetime || null : undefined,
+      match_time_state: schedule_mode_changed ? newMatchData.schedule.mode || null : undefined,
+      team_a_faction: faction_changed ? newMatchData.team_a_faction || null : undefined,
+    };
+
+    updateMatch(
+      { match_id, match_data: patch },
+      {
+        onSuccess: () => {
+          toast.success(`Updated match ${match_id}`);
+          onClose();
+        },
+      }
+    );
   };
 
   return (
@@ -475,19 +546,19 @@ function EditMatchForm({ match_id, onClose }) {
               </ColumnLayout>
             </FormField>
             <ScheduleSelection onChange={handleNewSchedule} initial={oldMatchData.schedule} />
-            {/*
-            <MapSelectionModeSelection
-              onChange={(mode) => {
-                setMapSelectionMode(mode);
-                if (mode !== "FIXED") setSelectedMap(undefined);
-                if (mode === "BAN_MAP_AND_FACTION") setFactions(undefined);
-              }}
-            />
-            {mapSelectionMode === "FIXED" && <MapSelection onChange={setSelectedMap} />}
-            {mapSelectionMode === "BAN_MAP_AND_FACTION" || (
-              <FactionSelection team_a={teamA} team_b={teamB} onChange={setFactions} />
+
+            <MapSelectionModeSelection onChange={handleMapModeChange} />
+            {newMatchData.map_selection_mode === "FIXED" && (
+              <MapSelection onChange={handleMapChange} initial_map_id={oldMatchData.game_map} />
             )}
-            */}
+            {newMatchData.map_selection_mode === "BAN_MAP_AND_FACTION" || (
+              <FactionSelection
+                team_a={team_a}
+                team_b={team_b}
+                onChange={handleFactionChange}
+                initial_allies={oldMatchData.team_a_faction === "AXIS" ? "B" : "A"}
+              />
+            )}
           </SpaceBetween>
         </Form>
       </form>
@@ -637,12 +708,13 @@ export function MatchGroupEdit() {
         </Modal>
       )}
       {matchToEdit && (
-        <Modal visible={true} header="Edit Match" onDismiss={() => setMatchToEdit(undefined)}>
+        <Modal visible={true} header={`Edit Match #${matchToEdit.id}`} onDismiss={() => setMatchToEdit(undefined)}>
           <EditMatchForm match_id={matchToEdit.id} onClose={() => setMatchToEdit(undefined)} />
         </Modal>
       )}
       <Table
         columnDefinitions={columns}
+        stickyHeader
         items={matches}
         trackBy="id"
         empty={<p>Nothing to see here.</p>}

@@ -31,6 +31,18 @@ class NewMatchData(UtcAwareBaseModel):
     map_selection_mode: model.MapSelectionMode = model.MapSelectionMode.FIXED
 
 
+class UpdateMatchData(UtcAwareBaseModel):
+    """
+    For basic match data updates -- date/time, map, scheduling/ban modes.
+    """
+    match_time: datetime | None = None
+    match_time_state: model.MatchSchedulingState | None = None
+
+    game_map: int | None = None
+    team_a_faction: model.Faction | None = None
+    map_selection_mode: model.MapSelectionMode | None = None
+
+
 class MatchResponse(UtcAwareBaseModel):
     """
     Full data about a match, but references are not resolved and are returned as ids.
@@ -78,10 +90,10 @@ async def list_matches_in_season(season_id: int) -> list[MatchResponse]:
 async def list_matches_in_group(group_id: int) -> list[MatchResponse]:
     """returns all matches in a given match-group, shallow!"""
     group = MatchGroup.get_by_id(group_id)
-    return [
+    return sorted([
         MatchResponse(**model_to_dict(m, recurse=False))
         for m in group.matches
-    ]
+    ], key=lambda x: x.id)
 
 
 @validate_call
@@ -134,6 +146,87 @@ async def create_match(data: NewMatchData, author: auth.User) -> MatchResponse:
             map_selection_mode=data.map_selection_mode,
         )
         m.save()
+    return MatchResponse(**model_to_dict(m, recurse=False))
+
+
+@validate_call
+@auth.requires_admin()
+@audit.log_call('{match_id}: {data}')
+async def update_match(match_id: int, data: UpdateMatchData, author: auth.User) -> MatchResponse:
+    """updates a match"""
+
+    match data.match_time_state:
+        case model.MatchSchedulingState.FIXED | model.MatchSchedulingState.OPEN_FOR_SUGGESTIONS | None:
+            pass  # this is fine
+        case _:
+            # everything else implies confirmation of one of the teams, which must be given through other means,
+            # by the team managers, not through an admin
+            raise ValueError('Invalid match scheduling mode.')
+
+
+    with db.proxy.atomic():
+        m: model.Match
+        m = model.Match.get_by_id(match_id)
+
+        # --- handle scheduling changes ---
+        if 'match_time' in data.model_fields_set:  # None is a valid value, so check for "is set" instead of "not None"
+            m.match_time = data.match_time # type: ignore
+            # an admin actively set a match date/time -- this resets any confirmation-state of the teams
+            if data.match_time_state is not None:
+                # okay, already checked before, just set it.
+                m.match_time_state = data.match_time_state # type: ignore
+            else:
+                # need to reset all confirmations, unless it is just a fixed date
+                if m.match_time_state != model.MatchSchedulingState.FIXED:
+                    m.match_time_state = model.MatchSchedulingState.OPEN_FOR_SUGGESTIONS # type: ignore
+        else:
+            # without giving a time, switching the mode should reset the previous value.
+            if data.match_time_state is not None:
+                m.match_time = None # type: ignore
+
+
+        # --- handle map and faction selection changes ---
+        MapMode = model.MapSelectionMode
+
+        if data.map_selection_mode is not None and data.map_selection_mode != MapMode.FIXED:
+            raise ValueError('Map bans are not supported, yet.')
+
+
+        new_map_mode = data.map_selection_mode or m.map_selection_mode
+        new_map = data.game_map if 'game_map' in data.model_fields_set else m.game_map  # "None" is valid for the map
+
+        if new_map_mode != m.map_selection_mode:
+            # The mode changed! Settings for map and faction in {data} may be ignored.
+            # TODO: if ban exists: remove ban.
+
+            match new_map_mode:
+                case MapMode.BAN_MAP_AND_FACTION:
+                    m.game_map = None # type: ignore
+                    m.team_a_faction = None # type: ignore
+                    # TODO: create new ban
+                case MapMode.BAN_MAP_FIXED_FACTION:
+                    m.game_map = None # type: ignore
+                    m.team_a_faction = data.team_a_faction or m.team_a_faction # type: ignore
+                    # TODO: create new ban
+                case MapMode.FIXED:
+                    m.game_map = data.game_map # type: ignore
+                    m.team_a_faction = data.team_a_faction # type: ignore
+
+            m.map_selection_mode = new_map_mode # type: ignore
+        else:
+            # the mode did not change, so check if setting map/faction is even allowed
+            if data.game_map and m.map_selection_mode != MapMode.FIXED:
+                raise ValueError('A map cannot be set together with Map-Ban-Modes.')
+
+            m.game_map = new_map # type: ignore
+
+            if data.team_a_faction and m.map_selection_mode == MapMode.BAN_MAP_AND_FACTION:
+                raise ValueError('Cannot set faction when it is part of the ban.')
+
+            m.team_a_faction = data.team_a_faction if 'team_a_faction' in data.model_fields_set else m.team_a_faction # type: ignore
+
+        m.save()
+
     return MatchResponse(**model_to_dict(m, recurse=False))
 
 

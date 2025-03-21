@@ -1,4 +1,3 @@
-import { Box, Popover } from "@cloudscape-design/components";
 import { Tooltip } from "react-tooltip";
 
 export function DateTimeDisplay({ timestamp }) {
@@ -22,7 +21,7 @@ export function DateTimeDisplay({ timestamp }) {
         <span data-tooltip-id="datetime-tooltip" data-tooltip-content={as_utc}>
           {as_local}
         </span>
-        <Tooltip id="datetime-tooltip" place="top" />
+        <Tooltip id="datetime-tooltip" place="top" style={{ zIndex: 99999 }} />
       </>
     )
   );

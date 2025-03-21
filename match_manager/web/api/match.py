@@ -34,6 +34,15 @@ async def create_match(data: model.NewMatchData, author: auth.User):
     return await model.create_match(data, author)
 
 
+@blue.route('/<int:match_id>', methods=['PATCH']) # type: ignore
+@requires_login()
+@validate_request(model.UpdateMatchData)
+@validate_response(model.MatchResponse)
+async def update_match(match_id: int, data: model.UpdateMatchData, author: auth.User):
+    """update a match"""
+    return await model.update_match(match_id, data, author)
+
+
 @blue.route('/<int:match_id>', methods=['DELETE'])
 @requires_login()
 async def delete_match(match_id: int, author: auth.User):

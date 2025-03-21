@@ -23,6 +23,10 @@ export const createMatch = async (match_data) => {
     return data;
 }
 
+export const updateMatch = async (match_id, match_data) => {
+    const { data } = await axios.patch(`${API_ENDPOINT}/matches/${match_id}`, match_data, { withCredentials: true });
+}
+
 export const removeMatch = async (match_id) => {
     await axios.delete(`${API_ENDPOINT}/matches/${match_id}`, { withCredentials: true });
 }

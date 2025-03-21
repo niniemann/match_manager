@@ -1,5 +1,5 @@
 from datetime import datetime, timezone, tzinfo
-from typing import Literal
+from typing import Any, Literal
 from functools import wraps
 
 from playhouse.shortcuts import model_to_dict
@@ -31,6 +31,15 @@ def create_audit_entry(author: auth.User, event_type: str, event_description: st
         e.save()
 
 
+class _PydanticFormatter(string.Formatter):
+    """custom string formatter that only shows fields from pydantic models that were explicitly set"""
+    def format_field(self, value: Any, format_spec: str) -> Any:
+        if isinstance(value, BaseModel):
+            explicitly_set_fields = { field: getattr(value, field) for field in value.model_fields_set }
+            return f"{explicitly_set_fields}"
+        return super().format_field(value, format_spec)
+
+
 def log_call(
         description: str = "",
         when: Literal["always", "on_success"] = "on_success",
@@ -47,7 +56,7 @@ def log_call(
     """
 
     # inspect the description to find tokens to replace by function arguments
-    formatter = string.Formatter()
+    formatter = _PydanticFormatter()
     tokens = [ field_name.split('.')[0] for _, field_name, _, _ in formatter.parse(description) if field_name ]
 
     def _audit_log(f):
@@ -74,8 +83,8 @@ def log_call(
                 if do_log:
                     create_audit_entry(
                         author=get_user(*args, **kwargs),
-                        event_type=event_type or f"{'.'.join(f.__module__.split('.')[1:])}.{f.__name__}",
-                        event_description=description.format(**values)
+                        event_type=event_type or f"{'.'.join(f.__module__.split('.')[2:])}.{f.__name__}",
+                        event_description=formatter.format(description, **values)
                     )
 
         return __audit_log
