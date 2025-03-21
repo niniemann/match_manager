@@ -113,7 +113,8 @@ function ScheduleSelection({ onChange, initial }) {
   /// adds a proper datetime value and evaluates the validity of the overall settings
   const augmentDateTime = (schedule) => {
     const dt = new Date(`${schedule.date}T${schedule.time}:00Z`);
-    const valid = !isNaN(dt) || (!schedule.date && !schedule.time);
+    // anything is valid when we are dynamically scheduling, as we don't consider the date/time input in that case
+    const valid = schedule.mode !== "FIXED" || !isNaN(dt) || (!schedule.date && !schedule.time);
     return {
       ...schedule,
       datetime: schedule.mode === "FIXED" && !isNaN(dt) ? dt : undefined,
@@ -126,8 +127,10 @@ function ScheduleSelection({ onChange, initial }) {
       ...prev,
       mode: newMode,
       // reset date/time when allowing team managers to choose for themselves
-      date: newMode === "OPEN_FOR_SUGGESTIONS" ? "" : prev.date,
-      time: newMode === "OPEN_FOR_SUGGESTIONS" ? "" : prev.time,
+      // edit: actually, keep the strings, only reset the datetime
+      // date: newMode === "OPEN_FOR_SUGGESTIONS" ? "" : prev.date,
+      // time: newMode === "OPEN_FOR_SUGGESTIONS" ? "" : prev.time,
+      datetime: newMode === "OPEN_FOR_SUGGESTIONS" ? undefined : prev.datetime,
     }));
     setSchedule(augmentDateTime);
   };
@@ -282,6 +285,10 @@ function NewMatchForm({ group_id, onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!schedule?.valid) {
+      toast.error('Invalid date/time provided. Make sure to set both or none.');
+      return;
+    }
 
     createMatch(
       {
@@ -397,6 +404,7 @@ function EditMatchForm({ match_id, onClose }) {
           ...old.schedule,
           mode: schedule.mode,
           datetime: schedule.datetime,
+          valid: schedule.valid,
         },
       }));
     },
@@ -411,6 +419,12 @@ function EditMatchForm({ match_id, onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (!newMatchData.schedule?.valid) {
+      toast.error('Invalid date/time provided. Make sure to set both or none.');
+      return;
+    }
+
     // TODO: save match, toast & close
     toast.info("TODO: Save the match.");
     onClose();
