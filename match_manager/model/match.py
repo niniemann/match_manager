@@ -168,6 +168,9 @@ async def update_match(match_id: int, data: UpdateMatchData, author: auth.User) 
         m: model.Match
         m = model.Match.get_by_id(match_id)
 
+        if m.state == model.MatchState.COMPLETED:
+            raise ValueError('Completed matches cannot be edited.')
+
         # --- handle scheduling changes ---
         if 'match_time' in data.model_fields_set:  # None is a valid value, so check for "is set" instead of "not None"
             m.match_time = data.match_time # type: ignore
@@ -224,6 +227,29 @@ async def update_match(match_id: int, data: UpdateMatchData, author: auth.User) 
                 raise ValueError('Cannot set faction when it is part of the ban.')
 
             m.team_a_faction = data.team_a_faction if 'team_a_faction' in data.model_fields_set else m.team_a_faction # type: ignore
+
+
+        # --- consider state changes due to finalized or revoked planning information ---
+        ScheduleState = model.MatchSchedulingState
+        time_set = m.match_time and m.match_time_state in [ScheduleState.FIXED, ScheduleState.BOTH_CONFIRMED]
+        map_set = m.game_map
+        faction_set = m.team_a_faction
+
+        match m.state:
+            case model.MatchState.DRAFT:
+                pass  # no automatic changes in DRAFT state.
+            case model.MatchState.PLANNING:
+                # maybe all relevant data is set and we are just waiting now?
+                if time_set and map_set and faction_set:
+                    m.state = model.MatchState.ACTIVE # type: ignore
+            case model.MatchState.ACTIVE:
+                # maybe some info has been reset and we are back in planning?
+                if not (time_set and map_set and faction_set):
+                    m.state = model.MatchState.PLANNING # type: ignore
+            case model.MatchState.CANCELLED:
+                pass # just like DRAFT, no automatic state change
+            case model.MatchState.COMPLETED:
+                pass # WOOPS -- should not get here, but reject editing completed matches early.
 
         m.save()
 

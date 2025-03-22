@@ -209,12 +209,15 @@ function MapSelection({ onChange, initial_map_id }) {
   const { data: maps, isLoading } = useMaps();
   const [mapId, setMapId] = useState(initial_map_id);
 
-  const map_options = maps?.map((m) => ({
-    label: m.short_name,
-    description: m.full_name,
-    value: m.id,
-    iconUrl: m.image_filename && `${API_ENDPOINT}/maps/image/${m.image_filename}`,
-  }));
+  const map_options = [
+    { label: '-', value: undefined },
+    ...maps?.map((m) => ({
+      label: m.short_name,
+      description: m.full_name,
+      value: m.id,
+      iconUrl: m.image_filename && `${API_ENDPOINT}/maps/image/${m.image_filename}`,
+    })) ?? [],
+  ];
 
   useEffect(() => {
     if (!isLoading && initial_map_id) {
@@ -398,7 +401,6 @@ function EditMatchForm({ match_id, onClose }) {
     [match_data]
   );
 
-
   // race condition: if oldMatchData is not loaded yet... newMatchData is initialized different from the actual old data. :(
   const [newMatchData, setNewMatchData] = useState({ ...oldMatchData });
   // to circumvent this: reset newMatchData once after loading!
@@ -406,7 +408,6 @@ function EditMatchForm({ match_id, onClose }) {
     if (isLoading) return;
     setNewMatchData(oldMatchData);
   }, [isLoading, setNewMatchData]);
-
 
   const hasUnsavedChanges = useMemo(() => {
     console.log(`old:`, oldMatchData);
@@ -450,12 +451,15 @@ function EditMatchForm({ match_id, onClose }) {
   );
 
   const handleMapChange = useCallback((map) => {
-    setNewMatchData((old) => ({ ...old, game_map: map.id }));
+    setNewMatchData((old) => ({ ...old, game_map: map?.id }));
   }, [setNewMatchData]);
 
-  const handleFactionChange = useCallback((factions) => {
-    setNewMatchData((old) => ({ ...old, team_a_faction: factions.team_a }));
-  }, [setNewMatchData]);
+  const handleFactionChange = useCallback(
+    (factions) => {
+      setNewMatchData((old) => ({ ...old, team_a_faction: factions.team_a }));
+    },
+    [setNewMatchData]
+  );
 
   // Ensure that everything is loaded before rendering the editing-components.
   // We need the data to set initial values.
@@ -480,7 +484,6 @@ function EditMatchForm({ match_id, onClose }) {
     const match_time_changed = newMatchData.schedule.datetime !== oldMatchData.schedule.datetime;
     const schedule_mode_changed = newMatchData.schedule.mode !== oldMatchData.schedule.mode;
     const faction_changed = newMatchData.team_a_faction !== oldMatchData.team_a_faction;
-
 
     const patch = {
       game_map: game_map_changed ? newMatchData.game_map || null : undefined,
@@ -510,7 +513,7 @@ function EditMatchForm({ match_id, onClose }) {
               <Button formAction="none" variant="link" onClick={onClose}>
                 Cancel
               </Button>
-              <Button variant="primary" disabled={isLoading || !hasUnsavedChanges}>
+              <Button variant="primary" disabled={isLoading || !hasUnsavedChanges || !newMatchData.schedule?.valid}>
                 Save
               </Button>
             </SpaceBetween>
