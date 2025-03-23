@@ -171,6 +171,9 @@ async def update_match(match_id: int, data: UpdateMatchData, author: auth.User) 
         if m.state == model.MatchState.COMPLETED:
             raise ValueError('Completed matches cannot be edited.')
 
+        if m.state == model.MatchState.CANCELLED:
+            raise ValueError('Why would you want to edit a cancelled match?')
+
         # --- handle scheduling changes ---
         if 'match_time' in data.model_fields_set:  # None is a valid value, so check for "is set" instead of "not None"
             m.match_time = data.match_time # type: ignore
@@ -254,6 +257,54 @@ async def update_match(match_id: int, data: UpdateMatchData, author: auth.User) 
         m.save()
 
     return MatchResponse(**model_to_dict(m, recurse=False))
+
+
+@validate_call
+@auth.requires_admin()
+@audit.log_call('{match_id}')
+async def set_active(match_id, author: auth.User) -> None:
+    """activate the match, i.e. set it from 'draft' to planning or active"""
+    with model.db_proxy.atomic() as txn:
+        m = model.Match.get_by_id(match_id)
+
+        State = model.MatchState
+        match m.state:
+            case State.DRAFT:
+                # everything planned?
+                if m.match_time and m.game_map and m.team_a_faction:
+                    m.state = State.ACTIVE
+                else:
+                    m.state = State.PLANNING
+            case State.PLANNING | State.ACTIVE:
+                pass # nothing to do, already active
+            case State.COMPLETED:
+                pass # should this be reported as an error?
+            case _:
+                raise ValueError("Invalid match state")
+
+        m.save()
+
+
+@validate_call
+@auth.requires_admin()
+@audit.log_call('{match_id}')
+async def set_draft(match_id, author: auth.User) -> None:
+    """deactivate a match, i.e. putting it back into draft mode"""
+    with model.db_proxy.atomic() as txn:
+        m = model.Match.get_by_id(match_id)
+
+        State = model.MatchState
+        match m.state:
+            case State.DRAFT:
+                pass  # nothing to do
+            case State.PLANNING | State.ACTIVE | State.CANCELLED:
+                m.state = State.DRAFT
+            case State.COMPLETED:
+                raise ValueError("No going back on completed matches")
+            case _:
+                raise ValueError("Invalid match state")
+
+        m.save()
 
 
 @validate_call

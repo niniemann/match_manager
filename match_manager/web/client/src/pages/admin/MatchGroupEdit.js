@@ -29,7 +29,7 @@ import { useTeam, useTeams } from "../../hooks/useTeams";
 
 import allies_logo from "../../img/allies_108.png";
 import axis_logo from "../../img/axis_108.png";
-import { useCreateMatch, useMatch, useMatchesInGroup, useRemoveMatch, useUpdateMatch } from "../../hooks/useMatches";
+import { useActivateMatch, useCreateMatch, useDraftMatch, useMatch, useMatchesInGroup, useRemoveMatch, useUpdateMatch } from "../../hooks/useMatches";
 import { ApiCallError } from "../../components/Dialogs";
 import { toast } from "react-toastify";
 import { showErrorToast } from "../../components/ErrorToast";
@@ -210,13 +210,13 @@ function MapSelection({ onChange, initial_map_id }) {
   const [mapId, setMapId] = useState(initial_map_id);
 
   const map_options = [
-    { label: '-', value: undefined },
-    ...maps?.map((m) => ({
+    { label: "-", value: undefined },
+    ...(maps?.map((m) => ({
       label: m.short_name,
       description: m.full_name,
       value: m.id,
       iconUrl: m.image_filename && `${API_ENDPOINT}/maps/image/${m.image_filename}`,
-    })) ?? [],
+    })) ?? []),
   ];
 
   useEffect(() => {
@@ -450,9 +450,12 @@ function EditMatchForm({ match_id, onClose }) {
     [setNewMatchData]
   );
 
-  const handleMapChange = useCallback((map) => {
-    setNewMatchData((old) => ({ ...old, game_map: map?.id }));
-  }, [setNewMatchData]);
+  const handleMapChange = useCallback(
+    (map) => {
+      setNewMatchData((old) => ({ ...old, game_map: map?.id }));
+    },
+    [setNewMatchData]
+  );
 
   const handleFactionChange = useCallback(
     (factions) => {
@@ -580,6 +583,8 @@ export function MatchGroupEdit() {
 
   const { data: matches, isLoading: matchesLoading } = useMatchesInGroup(groupId);
   const { mutate: removeMatch } = useRemoveMatch();
+  const { mutate: activateMatch } = useActivateMatch();
+  const { mutate: draftMatch } = useDraftMatch();
 
   const [matchToEdit, setMatchToEdit] = useState(undefined);
 
@@ -683,11 +688,28 @@ export function MatchGroupEdit() {
               case "edit":
                 setMatchToEdit(match);
                 break;
+              case "set-active":
+                activateMatch(match.id, {
+                  onError: (err) => showErrorToast(err)
+                });
+                break;
+              case "set-draft":
+                draftMatch(match.id, {
+                  onError: (err) => showErrorToast(err)
+                });
+                break;
               default:
                 console.log(JSON.stringify(detail));
             }
           }}
           items={[
+            {
+              type: "icon-button",
+              id: match.state === "DRAFT" ? "set-active" : "set-draft",
+              iconName: match.state === "DRAFT" ? "play" : "pause",
+              text: match.state === "DRAFT" ? "activate" : "make draft",
+              disabled: match.state === "COMPLETED" || match.state === "CANCELLED",
+            },
             { type: "icon-button", id: "edit", iconName: "edit", text: "edit" },
             {
               type: "menu-dropdown",

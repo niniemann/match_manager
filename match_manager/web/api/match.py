@@ -43,6 +43,22 @@ async def update_match(match_id: int, data: model.UpdateMatchData, author: auth.
     return await model.update_match(match_id, data, author)
 
 
+@blue.route('/<int:match_id>/set_active', methods=['POST']) # type: ignore
+@requires_login()
+async def set_active(match_id: int, author: auth.User):
+    """activate a match"""
+    await model.set_active(match_id, author)
+    return "", HTTPStatus.NO_CONTENT
+
+
+@blue.route('/<int:match_id>/set_draft', methods=['POST']) # type: ignore
+@requires_login()
+async def set_draft(match_id: int, author: auth.User):
+    """set a match back to draft-mode"""
+    await model.set_draft(match_id, author)
+    return "", HTTPStatus.NO_CONTENT
+
+
 @blue.route('/<int:match_id>', methods=['DELETE'])
 @requires_login()
 async def delete_match(match_id: int, author: auth.User):

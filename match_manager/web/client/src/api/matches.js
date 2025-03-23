@@ -30,3 +30,13 @@ export const updateMatch = async (match_id, match_data) => {
 export const removeMatch = async (match_id) => {
     await axios.delete(`${API_ENDPOINT}/matches/${match_id}`, { withCredentials: true });
 }
+
+export const activateMatch = async (match_id) => {
+    const { data } = await axios.post(`${API_ENDPOINT}/matches/${match_id}/set_active`, "", { withCredentials: true });
+    return data;
+}
+
+export const draftMatch = async (match_id) => {
+    const { data } = await axios.post(`${API_ENDPOINT}/matches/${match_id}/set_draft`, "", { withCredentials: true });
+    return data;
+}

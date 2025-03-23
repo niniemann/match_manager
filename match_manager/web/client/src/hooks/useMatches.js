@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "react-query";
-import { createMatch, fetchMatch, fetchMatches, fetchMatchesInGroup, removeMatch, updateMatch } from "../api/matches";
+import { activateMatch, createMatch, draftMatch, fetchMatch, fetchMatches, fetchMatchesInGroup, removeMatch, updateMatch } from "../api/matches";
 
 export const useMatches = () => {
   return useQuery(["matches"], fetchMatches);
@@ -58,3 +58,34 @@ export const useRemoveMatch = () => {
     }
   );
 };
+
+
+export const useActivateMatch = () => {
+  const queryClient = useQueryClient();
+  return useMutation(
+    (match_id) => {
+      return activateMatch(match_id);
+    },
+    {
+      onSuccess: (data, match_id) => {
+        queryClient.invalidateQueries(["matches"]);
+        queryClient.invalidateQueries(["match", match_id]);
+      }
+    }
+  );
+}
+
+export const useDraftMatch = () => {
+  const queryClient = useQueryClient();
+  return useMutation(
+    (match_id) => {
+      return draftMatch(match_id);
+    },
+    {
+      onSuccess: (data, match_id) => {
+        queryClient.invalidateQueries(["matches"]);
+        queryClient.invalidateQueries(["match", match_id]);
+      }
+    }
+  );
+}
