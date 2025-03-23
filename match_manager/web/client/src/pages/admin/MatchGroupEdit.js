@@ -258,14 +258,14 @@ function FactionSelection({ team_a, team_b, onChange, initial_allies }) {
   const option_team_b = { label: team_b?.name || "Team B", value: "B" };
   const options = [option_team_a, option_team_b];
 
-  const [allies, setAllies] = useState(initial_allies === "B" ? option_team_b : option_team_a);
+  const [allies, setAllies] = useState(initial_allies && (initial_allies === "A" ? option_team_a : option_team_b));
 
   useEffect(() => {
     onChange({
-      allies: allies.value === "A" ? team_a : team_b,
-      axis: allies.value === "A" ? team_b : team_a,
-      team_a: allies.value === "A" ? "ALLIES" : "AXIS",
-      team_b: allies.value === "A" ? "AXIS" : "ALLIES",
+      allies: allies && (allies.value === "A" ? team_a : team_b),
+      axis: allies && (allies.value === "A" ? team_b : team_a),
+      team_a: allies && (allies.value === "A" ? "ALLIES" : "AXIS"),
+      team_b: allies && (allies.value === "A" ? "AXIS" : "ALLIES"),
     });
   }, [allies, team_a, team_b, onChange]);
 
@@ -273,7 +273,7 @@ function FactionSelection({ team_a, team_b, onChange, initial_allies }) {
     <>
       <ColumnLayout columns={2}>
         <Select
-          selectedOption={{ ...options.find((o) => o.value === allies.value), iconUrl: allies_logo }}
+          selectedOption={{ ...options.find((o) => allies && (o.value === allies.value)), iconUrl: allies_logo }}
           onChange={({ detail }) => {
             setAllies(detail.selectedOption);
           }}
@@ -281,7 +281,7 @@ function FactionSelection({ team_a, team_b, onChange, initial_allies }) {
           triggerVariant="option"
         />
         <Select
-          selectedOption={{ ...options.find((o) => o.value !== allies.value), iconUrl: axis_logo }}
+          selectedOption={{ ...options.find((o) => allies && (o.value !== allies.value)), iconUrl: axis_logo }}
           disabled
           triggerVariant="option"
         />
@@ -566,7 +566,7 @@ function EditMatchForm({ match_id, onClose }) {
                 team_a={team_a}
                 team_b={team_b}
                 onChange={handleFactionChange}
-                initial_allies={oldMatchData.team_a_faction === "AXIS" ? "B" : "A"}
+                initial_allies={oldMatchData.team_a_faction && (oldMatchData.team_a_faction === "AXIS" ? "B" : "A")}
               />
             )}
           </SpaceBetween>
