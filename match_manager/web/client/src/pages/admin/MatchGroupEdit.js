@@ -1,6 +1,7 @@
 /// admin management of matches in a given season
 
 import {
+  Alert,
   Button,
   ButtonGroup,
   Checkbox,
@@ -10,6 +11,7 @@ import {
   Form,
   FormField,
   Header,
+  KeyValuePairs,
   Modal,
   Popover,
   RadioGroup,
@@ -29,10 +31,12 @@ import { useTeam, useTeams } from "../../hooks/useTeams";
 
 import allies_logo from "../../img/allies_108.png";
 import axis_logo from "../../img/axis_108.png";
-import { useActivateMatch, useCreateMatch, useDraftMatch, useMatch, useMatchesInGroup, useRemoveMatch, useUpdateMatch } from "../../hooks/useMatches";
-import { ApiCallError } from "../../components/Dialogs";
+import { useActivateMatch, useCreateMatch, useDraftMatch, useMatch, useMatchesInGroup, useRemoveMatch, useResetMatchResult, useSetMatchResult, useUpdateMatch } from "../../hooks/useMatches";
+import { ApiCallError, CriticalConfirmationDialog } from "../../components/Dialogs";
 import { toast } from "react-toastify";
 import { showErrorToast } from "../../components/ErrorToast";
+import { setResult } from "../../api/matches";
+import { MatchResultSubmitForm } from "../../components/Match";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
@@ -587,6 +591,10 @@ export function MatchGroupEdit() {
   const { mutate: draftMatch } = useDraftMatch();
 
   const [matchToEdit, setMatchToEdit] = useState(undefined);
+  const [matchToSetResultFor, setMatchToSetResultFor] = useState(undefined);
+  const [matchToResetResultFor, setMatchToResetResultFor] = useState(undefined);
+  const { mutate: setMatchResult } = useSetMatchResult();
+  const { mutate: resetMatchResult } = useResetMatchResult();
 
   useEffect(() => {
     const init = async () => {
@@ -698,6 +706,12 @@ export function MatchGroupEdit() {
                   onError: (err) => showErrorToast(err)
                 });
                 break;
+              case "set-result":
+                setMatchToSetResultFor(match);
+                break;
+              case "reset-result":
+                setMatchToResetResultFor(match);
+                break;
               default:
                 console.log(JSON.stringify(detail));
             }
@@ -710,6 +724,21 @@ export function MatchGroupEdit() {
               text: match.state === "DRAFT" ? "activate" : "make draft",
               disabled: match.state === "COMPLETED" || match.state === "CANCELLED",
             },
+
+            (match.state === "COMPLETED" && {
+              type: "icon-button",
+              id: "reset-result",
+              iconName: "undo",
+              text: "reset result",
+            }) ||
+            ({
+              type: "icon-button",
+              id: "set-result",
+              iconName: "envelope",
+              text: "set result",
+              disabled: match.state !== "ACTIVE"
+            }),
+
             { type: "icon-button", id: "edit", iconName: "edit", text: "edit" },
             {
               type: "menu-dropdown",
@@ -737,6 +766,64 @@ export function MatchGroupEdit() {
           <EditMatchForm match_id={matchToEdit.id} onClose={() => setMatchToEdit(undefined)} />
         </Modal>
       )}
+      {matchToSetResultFor && (
+        <Modal visible={true} header={`Set Result for Match #${matchToSetResultFor.id}`} onDismiss={() => setMatchToSetResultFor(undefined)}>
+          <MatchResultSubmitForm
+            match_id={matchToSetResultFor.id}
+            onClose={() => setMatchToSetResultFor(undefined)}
+            onSubmit={({ winner_id, result }) => {
+              setMatchResult({ match_id: matchToSetResultFor.id, winner_id, result},
+                {
+                  onSuccess: () => {
+                    toast.success(`set result for match ${matchToSetResultFor.id}`);
+                    setMatchToSetResultFor(undefined);
+                  },
+                  onError: (err) => {
+                    showErrorToast(err);
+                  }
+                }
+              );
+            }}
+            />
+        </Modal>
+      )}
+      {matchToResetResultFor && (
+        <CriticalConfirmationDialog
+          visible={true}
+          header={`Reset result of Match #${matchToResetResultFor.id}`}
+          onConfirm={() => {
+            resetMatchResult(matchToResetResultFor.id, {
+              onSuccess: () => {
+                toast.success(`Reset result of Match ${matchToResetResultFor.id}`);
+                setMatchToResetResultFor(undefined);
+              },
+              onError: (err) => {
+                showErrorToast(err);
+              }
+            });
+          }}
+          onDismiss={() => setMatchToResetResultFor(undefined)}
+        >
+          <Alert type="warning">
+            Are you sure you want to <b>reset</b> the result for this match?
+          </Alert>
+          <KeyValuePairs
+            columns={2}
+            items={[
+              {
+                label: "Winner",
+                value:
+                  <SpaceBetween direction="horizontal" size="s"><Avatar imgUrl={`${API_ENDPOINT}/teams/logo/${teamLookup[matchToResetResultFor.winner]?.logo_filename}`} />{teamLookup[matchToResetResultFor.winner]?.name}</SpaceBetween>
+              },
+              {
+                label: "Score",
+                value: `${matchToResetResultFor.winner_caps} - ${5 - matchToResetResultFor.winner_caps}`
+              }
+            ]}
+          />
+        </CriticalConfirmationDialog>
+      )
+      }
       <Table
         columnDefinitions={columns}
         stickyHeader

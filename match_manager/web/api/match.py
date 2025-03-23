@@ -5,8 +5,10 @@ from quart import Blueprint
 from quart_schema import validate_request, validate_response
 
 from match_manager.model import match as model, auth
+from match_manager.model.db.match import MatchCapScore
 from match_manager.web.api.login import requires_login
 
+from pydantic import BaseModel
 
 blue = Blueprint('matches', __name__, url_prefix='/api/matches')
 
@@ -56,6 +58,28 @@ async def set_active(match_id: int, author: auth.User):
 async def set_draft(match_id: int, author: auth.User):
     """set a match back to draft-mode"""
     await model.set_draft(match_id, author)
+    return "", HTTPStatus.NO_CONTENT
+
+
+class ResultModel(BaseModel):
+    winner_id: int
+    result: MatchCapScore
+
+
+@blue.route('/<int:match_id>/set_result', methods=['POST']) # type: ignore
+@requires_login()
+@validate_request(ResultModel)
+async def set_result(match_id: int, data: ResultModel, author: auth.User):
+    """set a fixed result for the match -- admins only."""
+    await model.set_result(match_id, data.winner_id, data.result, author)
+    return "", HTTPStatus.NO_CONTENT
+
+
+@blue.route('/<int:match_id>/reset_result', methods=['POST']) # type: ignore
+@requires_login()
+async def reset_result(match_id: int, author: auth.User):
+    """set a fixed result for the match -- admins only."""
+    await model.reset_result(match_id, author)
     return "", HTTPStatus.NO_CONTENT
 
 

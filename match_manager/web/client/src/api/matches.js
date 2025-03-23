@@ -25,6 +25,7 @@ export const createMatch = async (match_data) => {
 
 export const updateMatch = async (match_id, match_data) => {
     const { data } = await axios.patch(`${API_ENDPOINT}/matches/${match_id}`, match_data, { withCredentials: true });
+    return data;
 }
 
 export const removeMatch = async (match_id) => {
@@ -38,5 +39,15 @@ export const activateMatch = async (match_id) => {
 
 export const draftMatch = async (match_id) => {
     const { data } = await axios.post(`${API_ENDPOINT}/matches/${match_id}/set_draft`, "", { withCredentials: true });
+    return data;
+}
+
+export const setResult = async ({match_id, winner_id, result}) => {
+    const { data } = await axios.post(`${API_ENDPOINT}/matches/${match_id}/set_result`, { winner_id, result }, { withCredentials: true });
+    return data;
+}
+
+export const resetResult = async (match_id) => {
+    const { data } = await axios.post(`${API_ENDPOINT}/matches/${match_id}/reset_result`, "", { withCredentials: true });
     return data;
 }

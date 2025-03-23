@@ -31,6 +31,14 @@ class MatchCapScore(enum.Enum):
     WIN_3_2 = 3
 
 
+# TODO: I think I have to much redundant state here.
+#       The "MatchState" could just be a "draft" boolean -- everything else is implicit:
+#           - PLANNING == not draft and not all details set (map, time, faction)
+#           - ACTIVE   == not draft and all details set but no winner yet
+#           - COMPLETED == winner has been set
+#           - CANCELLED == hm, well, extra state?
+#       So maybe 3 states? DRAFT, ACTIVE, CANCELLED? Rest is MatchResultState etc?
+
 @enum.unique
 class MatchState(AutoNameEnum):
     """The state of the match/match-planning. May influence allowed actions and presentation."""
@@ -59,6 +67,15 @@ class MapSelectionMode(AutoNameEnum):
     BAN_MAP_AND_FACTION = auto()    # map and faction will be banned
 
 
+@enum.unique
+class MatchResultState(AutoNameEnum):
+    """The current state of the match-result."""
+    WAITING = auto()          # waiting for a result to be submitted by any team-rep or admin
+    FIXED = auto()            # result was set by an admin, not to be tampered with!
+    A_CONFIRMED = auto()      # result was submitted by team A, needs confirmation by B
+    B_CONFIRMED = auto()      # result was submitted by team B, needs confirmation by A
+    BOTH_CONFIRMED = auto()   # both teams confirmed the reported result
+
 
 class Match(pw.Model):
     class Meta:
@@ -85,6 +102,8 @@ class Match(pw.Model):
     # the winning team and how they scored
     winner = pw.ForeignKeyField(team.Team, null=True)
     winner_caps = EnumField(MatchCapScore, null=True)
+    # how the result was recorded -- fixed by admin, submitted and possibly confirmed by the team reps
+    result_state = EnumField(MatchResultState, default=MatchResultState.WAITING)
 
     # the overall state of this match,
     state = EnumField(MatchState, default=MatchState.DRAFT)

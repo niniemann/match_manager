@@ -62,6 +62,8 @@ class MatchResponse(UtcAwareBaseModel):
 
     winner: int | None
     winner_caps: int | None
+    result_state: model.MatchResultState
+
     state: model.MatchState
 
 
@@ -304,6 +306,55 @@ async def set_draft(match_id, author: auth.User) -> None:
             case _:
                 raise ValueError("Invalid match state")
 
+        m.save()
+
+
+@validate_call
+@auth.requires_admin()
+@audit.log_call('{match_id}: winner {winner_id} result {result}')
+async def set_result(match_id: int, winner_id: int, result: model.MatchCapScore, author: auth.User) -> None:
+    """set a fixed match result which cannot be changed by team managers"""
+    with model.db_proxy.atomic() as txn:
+        m = model.Match.get_by_id(match_id)
+
+        # only allow to set a result if the match has all the details and is thus either
+        # active or completed (when making a correction of a previously submitted result)
+        if m.state not in (model.MatchState.ACTIVE, model.MatchState.COMPLETED):
+            raise ValueError("The match is in an invalid state for submitting a result. Any match-details missing?")
+
+
+        if not winner_id in (m.team_a_id, m.team_b_id):
+            raise ValueError("Selected team did not participate in this match.")
+
+        m.winner = winner_id
+        m.winner_caps = result
+        m.result_state = model.MatchResultState.FIXED
+        m.state = model.MatchState.COMPLETED
+        m.save()
+
+
+@validate_call
+@auth.requires_admin()
+@audit.log_call('{match_id}')
+async def reset_result(match_id: int, author: auth.User) -> None:
+    """resets the result of a match"""
+    with model.db_proxy.atomic() as txn:
+        m = model.Match.get_by_id(match_id)
+
+        m.winner = None
+        m.winner_caps = None
+        m.result_state = model.MatchResultState.WAITING
+
+        State = model.MatchState
+        match m.state:
+            case State.DRAFT | State.PLANNING | State.ACTIVE | State.CANCELLED:
+                pass  # no state change needed
+            case State.COMPLETED:
+                # we only accept result submissions if the match state is ACTIVE, i.e. has all info.
+                # so we can safely drop back to ACTIVE as well, no need to check for "planning"
+                m.state = State.ACTIVE
+            case _:
+                raise ValueError("invalid state")
         m.save()
 
 
