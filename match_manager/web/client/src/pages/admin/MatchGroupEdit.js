@@ -6,7 +6,6 @@ import {
   ButtonGroup,
   Checkbox,
   ColumnLayout,
-  Container,
   DatePicker,
   Form,
   FormField,
@@ -31,11 +30,20 @@ import { useTeam, useTeams } from "../../hooks/useTeams";
 
 import allies_logo from "../../img/allies_108.png";
 import axis_logo from "../../img/axis_108.png";
-import { useActivateMatch, useCreateMatch, useDraftMatch, useMatch, useMatchesInGroup, useRemoveMatch, useResetMatchResult, useSetMatchResult, useUpdateMatch } from "../../hooks/useMatches";
+import {
+  useActivateMatch,
+  useCreateMatch,
+  useDraftMatch,
+  useMatch,
+  useMatchesInGroup,
+  useRemoveMatch,
+  useResetMatchResult,
+  useSetMatchResult,
+  useUpdateMatch,
+} from "../../hooks/useMatches";
 import { ApiCallError, CriticalConfirmationDialog } from "../../components/Dialogs";
 import { toast } from "react-toastify";
 import { showErrorToast } from "../../components/ErrorToast";
-import { setResult } from "../../api/matches";
 import { MatchResultSubmitForm } from "../../components/Match";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
@@ -273,7 +281,7 @@ function FactionSelection({ team_a, team_b, onChange, initial_allies }) {
     <>
       <ColumnLayout columns={2}>
         <Select
-          selectedOption={{ ...options.find((o) => allies && (o.value === allies.value)), iconUrl: allies_logo }}
+          selectedOption={{ ...options.find((o) => allies && o.value === allies.value), iconUrl: allies_logo }}
           onChange={({ detail }) => {
             setAllies(detail.selectedOption);
           }}
@@ -281,7 +289,7 @@ function FactionSelection({ team_a, team_b, onChange, initial_allies }) {
           triggerVariant="option"
         />
         <Select
-          selectedOption={{ ...options.find((o) => allies && (o.value !== allies.value)), iconUrl: axis_logo }}
+          selectedOption={{ ...options.find((o) => allies && o.value !== allies.value), iconUrl: axis_logo }}
           disabled
           triggerVariant="option"
         />
@@ -411,7 +419,7 @@ function EditMatchForm({ match_id, onClose }) {
   useEffect(() => {
     if (isLoading) return;
     setNewMatchData(oldMatchData);
-  }, [isLoading, setNewMatchData]);
+  }, [isLoading, setNewMatchData, oldMatchData]);
 
   const hasUnsavedChanges = useMemo(() => {
     console.log(`old:`, oldMatchData);
@@ -646,7 +654,13 @@ export function MatchGroupEdit() {
   const getScheduleIndicator = (match) => {
     switch (match.match_time_state) {
       case "FIXED":
-        return match.match_time && <DateTimeDisplay timestamp={match.match_time} />;
+        return (
+          match.match_time && (
+            <StatusIndicator type="success" colorOverride="grey">
+              <DateTimeDisplay timestamp={match.match_time} />
+            </StatusIndicator>
+          )
+        );
       case "OPEN_FOR_SUGGESTIONS":
         return <StatusIndicator type="pending">Waiting for suggestions</StatusIndicator>;
       case "A_CONFIRMED":
@@ -698,12 +712,12 @@ export function MatchGroupEdit() {
                 break;
               case "set-active":
                 activateMatch(match.id, {
-                  onError: (err) => showErrorToast(err)
+                  onError: (err) => showErrorToast(err),
                 });
                 break;
               case "set-draft":
                 draftMatch(match.id, {
-                  onError: (err) => showErrorToast(err)
+                  onError: (err) => showErrorToast(err),
                 });
                 break;
               case "set-result":
@@ -730,14 +744,13 @@ export function MatchGroupEdit() {
               id: "reset-result",
               iconName: "undo",
               text: "reset result",
-            }) ||
-            ({
+            }) || {
               type: "icon-button",
               id: "set-result",
               iconName: "envelope",
               text: "set result",
-              disabled: match.state !== "ACTIVE"
-            }),
+              disabled: match.state !== "ACTIVE",
+            },
 
             { type: "icon-button", id: "edit", iconName: "edit", text: "edit" },
             {
@@ -767,12 +780,17 @@ export function MatchGroupEdit() {
         </Modal>
       )}
       {matchToSetResultFor && (
-        <Modal visible={true} header={`Set Result for Match #${matchToSetResultFor.id}`} onDismiss={() => setMatchToSetResultFor(undefined)}>
+        <Modal
+          visible={true}
+          header={`Set Result for Match #${matchToSetResultFor.id}`}
+          onDismiss={() => setMatchToSetResultFor(undefined)}
+        >
           <MatchResultSubmitForm
             match_id={matchToSetResultFor.id}
             onClose={() => setMatchToSetResultFor(undefined)}
             onSubmit={({ winner_id, result }) => {
-              setMatchResult({ match_id: matchToSetResultFor.id, winner_id, result},
+              setMatchResult(
+                { match_id: matchToSetResultFor.id, winner_id, result },
                 {
                   onSuccess: () => {
                     toast.success(`set result for match ${matchToSetResultFor.id}`);
@@ -780,11 +798,11 @@ export function MatchGroupEdit() {
                   },
                   onError: (err) => {
                     showErrorToast(err);
-                  }
+                  },
                 }
               );
             }}
-            />
+          />
         </Modal>
       )}
       {matchToResetResultFor && (
@@ -799,7 +817,7 @@ export function MatchGroupEdit() {
               },
               onError: (err) => {
                 showErrorToast(err);
-              }
+              },
             });
           }}
           onDismiss={() => setMatchToResetResultFor(undefined)}
@@ -812,18 +830,23 @@ export function MatchGroupEdit() {
             items={[
               {
                 label: "Winner",
-                value:
-                  <SpaceBetween direction="horizontal" size="s"><Avatar imgUrl={`${API_ENDPOINT}/teams/logo/${teamLookup[matchToResetResultFor.winner]?.logo_filename}`} />{teamLookup[matchToResetResultFor.winner]?.name}</SpaceBetween>
+                value: (
+                  <SpaceBetween direction="horizontal" size="s">
+                    <Avatar
+                      imgUrl={`${API_ENDPOINT}/teams/logo/${teamLookup[matchToResetResultFor.winner]?.logo_filename}`}
+                    />
+                    {teamLookup[matchToResetResultFor.winner]?.name}
+                  </SpaceBetween>
+                ),
               },
               {
                 label: "Score",
-                value: `${matchToResetResultFor.winner_caps} - ${5 - matchToResetResultFor.winner_caps}`
-              }
+                value: `${matchToResetResultFor.winner_caps} - ${5 - matchToResetResultFor.winner_caps}`,
+              },
             ]}
           />
         </CriticalConfirmationDialog>
-      )
-      }
+      )}
       <Table
         columnDefinitions={columns}
         stickyHeader

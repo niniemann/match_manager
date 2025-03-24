@@ -11,6 +11,8 @@ class Team(pw.Model):
     class Meta:
         database = db_proxy
 
+    id: int  # shutup, pylance, this exists
+
     name = pw.CharField()
     tag = pw.CharField()
     description = pw.TextField(default="")

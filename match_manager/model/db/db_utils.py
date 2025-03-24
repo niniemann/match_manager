@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import enum
 import peewee as pw
 
@@ -34,3 +35,20 @@ class AutoNameEnum(enum.Enum):
     @staticmethod
     def _generate_next_value_(name, start, count, last_values) -> str:
         return name
+
+
+class UTCTimestampField(pw.TimestampField):
+    """
+    peewee.TimestampField has one issue: Even if utc=True is set, the returned datetime
+    objects are not timezone-aware.
+
+    This is a quick-fix: Just set tz=utc when loading from the database.
+    """
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs['utc'] = True
+        super().__init__(*args, **kwargs)
+
+    def python_value(self, value):
+        val: datetime | None
+        val = super().python_value(value)
+        return val and val.replace(tzinfo=timezone.utc)

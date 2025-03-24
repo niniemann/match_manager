@@ -9,12 +9,16 @@ import { AuditLogTable } from "./admin/Audit.js";
 import axios from "axios";
 import { MapTable } from "./admin/Maps.js";
 import { MatchGroupEdit } from "./admin/MatchGroupEdit.js";
+import { useCurrentUser } from "../hooks/useUser.js";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
 export default function Admin() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { data: currentUser } = useCurrentUser();
+
+  console.log(currentUser);
 
   const [seasons, setSeasons] = useState([]);
 

@@ -5,7 +5,7 @@ import peewee as pw
 
 from ._proxy import db_proxy
 from . import team, map as game_map, season
-from .db_utils import EnumField, AutoNameEnum
+from .db_utils import EnumField, AutoNameEnum, UTCTimestampField
 
 @enum.unique
 class Faction(AutoNameEnum):
@@ -91,7 +91,7 @@ class Match(pw.Model):
     team_b = pw.ForeignKeyField(team.Team)
 
     # the date/time of the match, and the current state of the scheduling
-    match_time = pw.TimestampField(utc=True, null=True, default=None)
+    match_time = UTCTimestampField(null=True, default=None)
     match_time_state = EnumField(MatchSchedulingState, default=MatchSchedulingState.FIXED)
 
     # the map and faction being played

@@ -1,10 +1,12 @@
 """api to modify matches"""
 
+from datetime import datetime
 from http import HTTPStatus
 from quart import Blueprint
 from quart_schema import validate_request, validate_response
 
 from match_manager.model import match as model, auth
+from match_manager.model.audit import UtcAwareBaseModel
 from match_manager.model.db.match import MatchCapScore
 from match_manager.web.api.login import requires_login
 
@@ -58,6 +60,19 @@ async def set_active(match_id: int, author: auth.User):
 async def set_draft(match_id: int, author: auth.User):
     """set a match back to draft-mode"""
     await model.set_draft(match_id, author)
+    return "", HTTPStatus.NO_CONTENT
+
+
+class MatchTimeSuggestion(UtcAwareBaseModel):
+    match_time: datetime
+
+
+@blue.route('/<int:match_id>/suggest_match_time', methods=['POST']) # type: ignore
+@requires_login()
+@validate_request(MatchTimeSuggestion)
+async def manager_suggest_match_time(match_id: int, data: MatchTimeSuggestion, author: auth.User):
+    """suggest/confirm a date and time for a match"""
+    await model.manager_suggest_match_time(match_id, data.match_time, author)
     return "", HTTPStatus.NO_CONTENT
 
 

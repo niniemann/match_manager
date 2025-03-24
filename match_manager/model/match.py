@@ -1,6 +1,7 @@
 
 from datetime import datetime
 from playhouse.shortcuts import model_to_dict
+import logging
 
 from match_manager.model.season import MatchGroup
 from match_manager.model.validation import UtcAwareBaseModel
@@ -10,6 +11,7 @@ from pydantic import validate_call
 
 from match_manager.model import db, auth, audit
 
+logger = logging.getLogger(__name__)
 
 """
 pydantic models for validation
@@ -151,6 +153,37 @@ async def create_match(data: NewMatchData, author: auth.User) -> MatchResponse:
     return MatchResponse(**model_to_dict(m, recurse=False))
 
 
+def __auto_update_match_state(m: model.Match):
+    """inspect the match data and transition states if necessary (does not save)"""
+
+    time_set = (
+        m.match_time and
+        m.match_time_state in [model.MatchSchedulingState.FIXED, model.MatchSchedulingState.BOTH_CONFIRMED]
+    )
+    map_set = m.game_map
+    faction_set = m.team_a_faction
+
+    State = model.MatchState
+    match m.state:
+        case State.DRAFT:
+            pass  # no automatic changes in DRAFT state.
+        case State.COMPLETED:
+            logger.error("What the hell? Calling __auto_update_match_state on a completed match? (id: %s)", m.id)
+            # but don't raise an actual error, just ignore the state change for now.
+        case State.PLANNING:
+            # maybe all relevant data is set and we are just waiting now?
+            if time_set and map_set and faction_set:
+                m.state = State.ACTIVE # type: ignore
+        case State.ACTIVE:
+            # maybe some info has been reset and we are back in planning?
+            if not (time_set and map_set and faction_set):
+                m.state = State.PLANNING # type: ignore
+        case State.CANCELLED:
+            pass # just like DRAFT, no automatic state change
+        case _:
+            raise ValueError('invalid match state')
+
+
 @validate_call
 @auth.requires_admin()
 @audit.log_call('{match_id}: {data}')
@@ -235,26 +268,7 @@ async def update_match(match_id: int, data: UpdateMatchData, author: auth.User) 
 
 
         # --- consider state changes due to finalized or revoked planning information ---
-        ScheduleState = model.MatchSchedulingState
-        time_set = m.match_time and m.match_time_state in [ScheduleState.FIXED, ScheduleState.BOTH_CONFIRMED]
-        map_set = m.game_map
-        faction_set = m.team_a_faction
-
-        match m.state:
-            case model.MatchState.DRAFT:
-                pass  # no automatic changes in DRAFT state.
-            case model.MatchState.PLANNING:
-                # maybe all relevant data is set and we are just waiting now?
-                if time_set and map_set and faction_set:
-                    m.state = model.MatchState.ACTIVE # type: ignore
-            case model.MatchState.ACTIVE:
-                # maybe some info has been reset and we are back in planning?
-                if not (time_set and map_set and faction_set):
-                    m.state = model.MatchState.PLANNING # type: ignore
-            case model.MatchState.CANCELLED:
-                pass # just like DRAFT, no automatic state change
-            case model.MatchState.COMPLETED:
-                pass # WOOPS -- should not get here, but reject editing completed matches early.
+        __auto_update_match_state(m)
 
         m.save()
 
@@ -272,18 +286,14 @@ async def set_active(match_id, author: auth.User) -> None:
         State = model.MatchState
         match m.state:
             case State.DRAFT:
-                # everything planned?
-                if m.match_time and m.game_map and m.team_a_faction:
-                    m.state = State.ACTIVE
-                else:
-                    m.state = State.PLANNING
+                m.state = State.PLANNING
+                __auto_update_match_state(m)  # for a potential transition to active
             case State.PLANNING | State.ACTIVE:
                 pass # nothing to do, already active
             case State.COMPLETED:
                 pass # should this be reported as an error?
             case _:
                 raise ValueError("Invalid match state")
-
         m.save()
 
 
@@ -306,6 +316,63 @@ async def set_draft(match_id, author: auth.User) -> None:
             case _:
                 raise ValueError("Invalid match state")
 
+        m.save()
+
+
+@validate_call
+@auth.requires_team_manager()
+@audit.log_call('{match_id}: {match_time}')
+async def manager_suggest_match_time(match_id: int, match_time: datetime, author: auth.User) -> None:
+    # TODO: Should the team by which the suggestion/confirmation is made be explicit in the args?
+    #       Currently it is just implicit through the author.
+    """
+    Suggestion of a team-manager for a date and time for a match.
+    Also used for confirmation if the it matches a date/time suggested by the opponent before,
+    or for refusal and counter-suggestion if it differs.
+    """
+    with model.db_proxy.atomic() as txn:
+        m = model.Match.get_by_id(match_id)
+
+        if not author.is_manager_for(m.team_a_id) and not author.is_manager_for(m.team_b_id):
+            raise auth.PermissionDenied("You are not a manager for any of the teams. Shame on you for trying!")
+
+        State = model.MatchSchedulingState
+        match m.match_time_state:
+            case State.FIXED | State.BOTH_CONFIRMED:
+                raise ValueError("The match time has been fixed, no more editing!")
+            case State.OPEN_FOR_SUGGESTIONS:
+                m.match_time = match_time
+                if author.is_manager_for(m.team_a_id):
+                    m.match_time_state = State.A_CONFIRMED
+                else:
+                    m.match_time_state = State.B_CONFIRMED
+            case State.A_CONFIRMED | State.B_CONFIRMED:
+                if m.match_time == match_time:
+                    # confirmation?
+                    if (m.match_time_state == State.A_CONFIRMED and author.is_manager_for(m.team_b_id)) or \
+                       (m.match_time_state == State.B_CONFIRMED and author.is_manager_for(m.team_a_id)):
+                        m.match_time_state = State.BOTH_CONFIRMED
+                    else:
+                        # .. it was just a repeat, a duplicate - whatever.
+                        pass
+                else:
+                    # whoops, change of mind or refusal
+                    if (m.match_time_state == State.A_CONFIRMED and author.is_manager_for(m.team_b_id)) or \
+                       (m.match_time_state == State.B_CONFIRMED and author.is_manager_for(m.team_a_id)):
+                        # refusal -- take the new suggestion and toggle the confirmation info
+                        m.match_time = match_time
+                        m.match_time_state = State.A_CONFIRMED if m.match_time_state == State.B_CONFIRMED else State.B_CONFIRMED
+                    else:
+                        # change of mind.
+                        # TODO: People make mistakes, so change of mind is fine.
+                        #       But people are also abusive fucks and spam things if they think they get an advantage.
+                        #       ... forbid "change of mind", let them commit? .. yeah. Admin can always change.
+                        raise auth.PermissionDenied("Nope, you committed to this. No takesies backsies!")
+            case _:
+                raise ValueError("Invalid state")
+
+        # after updating the schedule, maybe the match data are now complete and we transition from panning to active?
+        __auto_update_match_state(m)
         m.save()
 
 
