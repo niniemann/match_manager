@@ -28,6 +28,47 @@ export default function Admin() {
     });
   }, []);
 
+  const admin_nav = {
+    type: "section-group",
+    title: "Admin",
+    items: [
+      /* Manage the available maps. No longer hardcoded, choose yourself which are relevant. */
+      { type: "link", text: "Maps", href: "/admin/all-maps" },
+
+      /* Manage all teams/coalitions that ever participated */
+      { type: "link", text: "Teams", href: "/admin/all-teams" },
+
+      /* Link to seasons management.. i.e., create seasons.*/
+      { type: "link", text: "Seasons", href: "/admin/seasons" },
+
+      /* The audit log -- check who messed up! */
+      { type: "link", text: "Audit Log", href: "/admin/audit-log" },
+
+      { type: "divider" },
+
+      {
+        type: "section-group",
+        title: "Seasons",
+        // For every season, add explicit management pages that would result in too deep of a clutter in the overall
+        // season-nav. Stuff like match scheduling, penalties, the map-pool, ...
+        items: seasons.map((season) => ({
+          type: "expandable-link-group",
+          text: season.name,
+          href: `/admin/season/${season.id}`,
+          items: [
+            { type: "link", text: "Teams", href: `/admin/season/${season.id}` },
+
+            ...season.match_groups.map((group) => ({
+              type: "link",
+              text: group.name,
+              href: `/admin/season/${season.id}/group/${group.id}/matches`,
+            })),
+          ],
+        })),
+      },
+    ],
+  };
+
   return (
     <AppLayout
       headerSelector="#h"
