@@ -101,6 +101,28 @@ async def list_matches_in_group(group_id: int) -> list[MatchResponse]:
 
 
 @validate_call
+async def list_matches_in_planning() -> list[MatchResponse]:
+    """
+    Returns all matches that are currently in planning.
+    These are all matches that have not all basic details set -- map, faction, time/date --
+    and thus may require team manager participation (either direct through interactive
+    scheduling/map bans, or indirect through communication with admins).
+    """
+    query = model.Match.select().where(model.Match.state == model.MatchState.PLANNING)
+    return [MatchResponse(**model_to_dict(m, recurse=False)) for m in query]
+
+
+@validate_call
+async def list_matches_waiting_for_result() -> list[MatchResponse]:
+    """
+    Returns all matches that are fully planned and active but do not have a result.
+    This includes matches which have not been fought yet.
+    """
+    query = model.Match.select().where(model.Match.state == model.MatchState.ACTIVE)
+    return [MatchResponse(**model_to_dict(m, recurse=False)) for m in query]
+
+
+@validate_call
 async def get_match(match_id: int) -> MatchResponse:
     """get a single match, shallow!"""
     m = model.Match.get_by_id(match_id)

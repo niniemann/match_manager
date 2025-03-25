@@ -22,6 +22,20 @@ async def list_matches() -> list[model.MatchResponse]:
     return await model.list_matches()
 
 
+@blue.route('/in-planning', methods=['GET'])
+@validate_response(list[model.MatchResponse])
+async def list_matches_in_planning() -> list[model.MatchResponse]:
+    """list matches that are in planning"""
+    return await model.list_matches_in_planning()
+
+
+@blue.route('/waiting-for-result', methods=['GET'])
+@validate_response(list[model.MatchResponse])
+async def list_matches_waiting_for_result() -> list[model.MatchResponse]:
+    """list matches that are waiting for a result"""
+    return await model.list_matches_waiting_for_result()
+
+
 @blue.route('/<int:match_id>', methods=['GET']) # type: ignore
 @validate_response(model.MatchResponse)
 async def get_match(match_id: int):

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "react-query";
-import { activateMatch, createMatch, draftMatch, fetchMatch, fetchMatches, fetchMatchesInGroup, removeMatch, resetResult, setResult, updateMatch } from "../api/matches";
+import { activateMatch, createMatch, draftMatch, fetchMatch, fetchMatches, fetchMatchesInGroup, fetchMatchesInPlanning, fetchMatchesWaitingForResult, removeMatch, resetResult, setResult, updateMatch } from "../api/matches";
 
 export const useMatches = () => {
   return useQuery(["matches"], fetchMatches);
@@ -7,6 +7,14 @@ export const useMatches = () => {
 
 export const useMatchesInGroup = (group_id) => {
   return useQuery(["matches", "in-group", group_id], () => fetchMatchesInGroup(group_id));
+};
+
+export const useMatchesInPlanning = () => {
+  return useQuery(["matches", "in-planning"], () => fetchMatchesInPlanning());
+};
+
+export const useMatchesWaitingForResult = () => {
+  return useQuery(["matches", "waiting-for-result"], () => fetchMatchesWaitingForResult());
 };
 
 export const useMatch = (match_id) => {

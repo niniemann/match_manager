@@ -12,6 +12,16 @@ export const fetchMatchesInGroup = async (group_id) => {
     return data;
 }
 
+export const fetchMatchesInPlanning = async () => {
+    const { data } = await axios.get(`${API_ENDPOINT}/matches/in-planning`);
+    return data;
+}
+
+export const fetchMatchesWaitingForResult = async () => {
+    const { data } = await axios.get(`${API_ENDPOINT}/matches/waiting-for-result`);
+    return data;
+}
+
 export const fetchMatch = async (match_id) => {
     const { data } = await axios.get(`${API_ENDPOINT}/matches/${match_id}`);
     return data;
