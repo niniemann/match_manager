@@ -11,6 +11,7 @@ import { MapTable } from "./admin/Maps.js";
 import { MatchGroupEdit } from "./admin/MatchGroupEdit.js";
 import { useCurrentUser } from "../hooks/useUser.js";
 import { TeamManagerOpenTasks } from "./manager/OpenTasks.js";
+import { useTeamLookup } from "../hooks/useTeams.js";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT;
 
@@ -18,8 +19,8 @@ export default function Admin() {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: currentUser } = useCurrentUser();
+  const { data: teams } = useTeamLookup();
 
-  console.log(currentUser);
 
   const [seasons, setSeasons] = useState([]);
 
@@ -90,7 +91,8 @@ export default function Admin() {
             title: "Team Manager",
             items: currentUser?.is_manager_for_teams.map((team_id) => ({
               type: "section",
-              text: `Team: ${team_id}`,
+              text: `${teams && teams[team_id]?.name}`,
+
               items: [{ type: "link", text: "Tasks", href: `/admin/manage-team/${team_id}/tasks` }],
             })) ?? [],
           },

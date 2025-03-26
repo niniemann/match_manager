@@ -1,4 +1,4 @@
-import { Button, SpaceBetween, StatusIndicator, Table } from "@cloudscape-design/components";
+import { Button, ButtonGroup, Header, SpaceBetween, StatusIndicator, Table } from "@cloudscape-design/components";
 import { useTeamLookup } from "../../hooks/useTeams";
 import { useParams } from "react-router-dom";
 import { useMatchesInPlanning } from "../../hooks/useMatches";
@@ -15,47 +15,99 @@ import { Avatar, LoadingBar } from "@cloudscape-design/chat-components";
 function InPlanningTable({ team, matches }) {
   const { data: teams } = useTeamLookup();
 
-  const showTeam = (team_id) => <SpaceBetween direction="horizontal" size="s"><Avatar imgUrl={teams && teams[team_id]?.logo_url} />{(teams && teams[team_id]?.name) || ""}</SpaceBetween>;
+  // --- helpers to deal with different scheduling states ---
+  const set_by_admin = (match) => match.match_time_state === "FIXED" && match.match_time;
+  const waiting_for_admin = (match) => match.match_time_state === "FIXED" && !match.match_time;
+  const confirmed = (match) => match.match_time_state === "BOTH_CONFIRMED";
+  const waiting_for_opponent = (match) =>
+    (match.match_time_state === "A_CONFIRMED" && team === match.team_a) ||
+    (match.match_time_state === "B_CONFIRMED" && team === match.team_b);
+  const needs_suggestion = (match) => match.match_time_state === "OPEN_FOR_SUGGESTIONS";
+  const needs_confirmation = (match) =>
+    (match.match_time_state === "A_CONFIRMED" && team === match.team_b) ||
+    (match.match_time_state === "B_CONFIRMED" && team === match.team_a);
+  // --------------------------------------------------------
 
-  const schedule_cell = (match) => {
-    const isFixed = match.match_time_state === "FIXED" || match.match_time_state === "BOTH_CONFIRMED";
-    const waiting_for_other_team =
-      (match.match_time_state === "A_CONFIRMED" && team === match.team_b) ||
-      (match.match_time_state === "B_CONFIRMED" && team === match.team_a);
+  const showTeam = (team_id) => (
+    <SpaceBetween direction="horizontal" size="s">
+      <Avatar imgUrl={teams && teams[team_id]?.logo_url} />
+      {(teams && teams[team_id]?.name) || ""}
+    </SpaceBetween>
+  );
 
-    if (isFixed) {
-      return match.match_time && <StatusIndicator type="success" colorOverride="grey"><DateTimeDisplay timestamp={match.match_time} /></StatusIndicator>;
+  const matchtime_cell = (match) => {
+    return (match.match_time && <DateTimeDisplay timestamp={match.match_time} />);
+  };
+
+  const schedule_state_cell = (match) => {
+    if (set_by_admin(match)) {
+        return (
+          <StatusIndicator type="info">
+            Fixed by admin.
+          </StatusIndicator>
+        );
+      }
+
+    if (waiting_for_admin(match)) {
+      return <StatusIndicator type="pending">Waiting for admin.</StatusIndicator>;
     }
 
-    if (waiting_for_other_team) {
+    if (waiting_for_opponent(match)) {
+      const other_team_id = team === match.team_a ? match.team_b : match.team_a;
       return (
         <StatusIndicator type="in-progress">
-          <DateTimeDisplay timestamp={match.match_time} />
+          Waiting for {teams && teams[other_team_id]?.tag} to confirm.
         </StatusIndicator>
       );
     }
 
-    // else: we must provide input. --> show button to open date/time modal
-    return (
-      <>
-        {match.match_time && <StatusIndicator type="warning"><DateTimeDisplay timestamp={match.match_time} /></StatusIndicator>}
-        <Button
-          variant="icon"
-          iconName="edit"
-          onClick={() => toast.info("TODO: open confirm/suggest date/time modal")}
-        />
-      </>
-    );
+    if (needs_confirmation(match)) {
+      return <StatusIndicator type="warning">Please confirm.</StatusIndicator>;
+    }
+
+    if (needs_suggestion(match)) {
+      return <StatusIndicator type="warning">Please suggest a date & time.</StatusIndicator>;
+    }
+
+    if (confirmed(match)) {
+      return <StatusIndicator type="success">Confirmed.</StatusIndicator>;
+    }
+
+    return <></>;
   };
+
+  const schedule_action_cell = (match) => {
+    return <ButtonGroup
+      items={[
+        { id: "confirm", text: "confirm", type: "icon-button", iconName: "check", disabled: !needs_confirmation(match) },
+        { id: "reject", text: "reject", type: "icon-button", iconName: "close", disabled: !needs_confirmation(match) },
+        { id: "suggest", text: "suggest", type: "icon-button", iconName: "envelope", disabled: !needs_suggestion(match) },
+      ]} // TODO: implement. (and make issuing team explicit!)
+    />
+  }
 
   const columns = [
     { id: "match_id", header: "Id", cell: (match) => match.id },
-    { id: "match_time", header: "Date/Time", cell: schedule_cell },
-    { id: "team_a", header: "Team A", cell: (match) => showTeam(match.team_a) },
-    { id: "team_b", header: "Team B", cell: (match) => showTeam(match.team_b) },
+    { id: "match_time", header: "Date/Time", cell: matchtime_cell },
+    { id: "match_time_state", header: "State", cell: schedule_state_cell },
+    { id: "match_time_action", header: "Schedule", cell: schedule_action_cell },
+    {
+      id: "opponent",
+      header: "Opponent",
+      cell: (match) => showTeam(team === match.team_a ? match.team_b : match.team_a),
+    },
+    // TODO: cell for map / link-to-map-ban + "your-turn"-indication
   ];
 
-  return <Table columnDefinitions={columns} items={matches} />;
+  return (
+    <Table
+      header={<Header>In Planning</Header>}
+      columnDefinitions={columns}
+      items={matches}
+      variant="borderless"
+      stickyHeader
+    />
+  );
 }
 
 export function TeamManagerOpenTasks() {
@@ -69,5 +121,8 @@ export function TeamManagerOpenTasks() {
   }, [teamIdInt, allMatchesInPlanning]);
 
   if (loadingMatches) return <LoadingBar variant="gen-ai-masked" />;
+
+  // TODO: table with matches waiting for a result
+
   return <InPlanningTable team={teamIdInt} matches={matchesInPlanning} />;
 }
