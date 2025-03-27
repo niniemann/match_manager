@@ -343,10 +343,8 @@ async def set_draft(match_id, author: auth.User) -> None:
 
 @validate_call
 @auth.requires_team_manager()
-@audit.log_call('{match_id}: {match_time}')
-async def manager_suggest_match_time(match_id: int, match_time: datetime, author: auth.User) -> None:
-    # TODO: Should the team by which the suggestion/confirmation is made be explicit in the args?
-    #       Currently it is just implicit through the author.
+@audit.log_call('match: {match_id} / team: {team_id} / {match_time}')
+async def manager_suggest_match_time(match_id: int, team_id: int, match_time: datetime, author: auth.User) -> None:
     """
     Suggestion of a team-manager for a date and time for a match.
     Also used for confirmation if the it matches a date/time suggested by the opponent before,
@@ -355,8 +353,11 @@ async def manager_suggest_match_time(match_id: int, match_time: datetime, author
     with model.db_proxy.atomic() as txn:
         m = model.Match.get_by_id(match_id)
 
-        if not author.is_manager_for(m.team_a_id) and not author.is_manager_for(m.team_b_id):
-            raise auth.PermissionDenied("You are not a manager for any of the teams. Shame on you for trying!")
+        if not author.is_manager_for(team_id):
+            raise auth.PermissionDenied("You are not a manager of this team. Shame on you for trying!")
+
+        if team_id != m.team_a_id and team_id != m.team_b_id:
+            raise ValueError("This team does not participate in this match.")
 
         State = model.MatchSchedulingState
         match m.match_time_state:
@@ -364,24 +365,24 @@ async def manager_suggest_match_time(match_id: int, match_time: datetime, author
                 raise ValueError("The match time has been fixed, no more editing!")
             case State.OPEN_FOR_SUGGESTIONS:
                 m.match_time = match_time
-                if author.is_manager_for(m.team_a_id):
+                if team_id == m.team_a_id:
                     m.match_time_state = State.A_CONFIRMED
                 else:
                     m.match_time_state = State.B_CONFIRMED
             case State.A_CONFIRMED | State.B_CONFIRMED:
                 if m.match_time == match_time:
                     # confirmation?
-                    if (m.match_time_state == State.A_CONFIRMED and author.is_manager_for(m.team_b_id)) or \
-                       (m.match_time_state == State.B_CONFIRMED and author.is_manager_for(m.team_a_id)):
+                    if (m.match_time_state == State.A_CONFIRMED and team_id == m.team_b_id) or \
+                       (m.match_time_state == State.B_CONFIRMED and team_id == m.team_a_id):
                         m.match_time_state = State.BOTH_CONFIRMED
                     else:
                         # .. it was just a repeat, a duplicate - whatever.
                         pass
                 else:
                     # whoops, change of mind or refusal
-                    if (m.match_time_state == State.A_CONFIRMED and author.is_manager_for(m.team_b_id)) or \
-                       (m.match_time_state == State.B_CONFIRMED and author.is_manager_for(m.team_a_id)):
-                        # refusal -- take the new suggestion and toggle the confirmation info
+                    if (m.match_time_state == State.A_CONFIRMED and team_id == m.team_b_id) or \
+                       (m.match_time_state == State.B_CONFIRMED and team_id == m.team_a_id):
+                        # rejection -- take the new suggestion and toggle the confirmation info
                         m.match_time = match_time
                         m.match_time_state = State.A_CONFIRMED if m.match_time_state == State.B_CONFIRMED else State.B_CONFIRMED
                     else:

@@ -79,6 +79,7 @@ async def set_draft(match_id: int, author: auth.User):
 
 class MatchTimeSuggestion(UtcAwareBaseModel):
     match_time: datetime
+    suggesting_team: int
 
 
 @blue.route('/<int:match_id>/suggest_match_time', methods=['POST']) # type: ignore
@@ -86,7 +87,7 @@ class MatchTimeSuggestion(UtcAwareBaseModel):
 @validate_request(MatchTimeSuggestion)
 async def manager_suggest_match_time(match_id: int, data: MatchTimeSuggestion, author: auth.User):
     """suggest/confirm a date and time for a match"""
-    await model.manager_suggest_match_time(match_id, data.match_time, author)
+    await model.manager_suggest_match_time(match_id, data.suggesting_team, data.match_time, author)
     return "", HTTPStatus.NO_CONTENT
 
 

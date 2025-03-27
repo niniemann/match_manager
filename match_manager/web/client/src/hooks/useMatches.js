@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "react-query";
-import { activateMatch, createMatch, draftMatch, fetchMatch, fetchMatches, fetchMatchesInGroup, fetchMatchesInPlanning, fetchMatchesWaitingForResult, removeMatch, resetResult, setResult, updateMatch } from "../api/matches";
+import { activateMatch, createMatch, draftMatch, fetchMatch, fetchMatches, fetchMatchesInGroup, fetchMatchesInPlanning, fetchMatchesWaitingForResult, removeMatch, resetResult, setResult, suggestMatchTime, updateMatch } from "../api/matches";
 
 export const useMatches = () => {
   return useQuery(["matches"], fetchMatches);
@@ -126,4 +126,16 @@ export const useResetMatchResult = () => {
       }
     }
   );
+}
+
+export const useSuggestMatchTime = () => {
+  const queryClient = useQueryClient();
+  return useMutation(suggestMatchTime,
+    {
+      onSuccess: (data, {match_id, suggesting_team, match_time}) => {
+        queryClient.invalidateQueries(["matches"]);
+        queryClient.invalidateQueries(["matche", match_id]);
+      }
+    }
+  )
 }
